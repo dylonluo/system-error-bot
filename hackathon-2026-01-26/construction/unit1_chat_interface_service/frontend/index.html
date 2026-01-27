@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Castlery | AI Support Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-icon">🏰</span>
+                    <div class="logo-text">
+                        <span class="brand">Castlery</span>
+                        <span class="product">AI Support</span>
+                    </div>
+                </div>
+            </div>
+            
+            <button class="new-chat-btn" onclick="startNewConversation()">
+                <i class="fas fa-plus"></i>
+                <span>New Conversation</span>
+            </button>
+            
+            <div class="conversations-section">
+                <h3>Recent Conversations</h3>
+                <div id="conversation-list" class="conversation-list">
+                    <!-- Conversations will be loaded here -->
+                </div>
+            </div>
+            
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="user-details">
+                        <span class="user-name">Demo User</span>
+                        <span class="user-role">Support Agent</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-main">
+            <!-- Chat Header -->
+            <header class="chat-header">
+                <div class="chat-title">
+                    <h2 id="current-chat-title">New Conversation</h2>
+                    <span id="chat-status" class="status-badge status-active">Active</span>
+                </div>
+                <div class="chat-actions">
+                    <button class="action-btn" onclick="escalateConversation()" title="Escalate to Human Support">
+                        <i class="fas fa-headset"></i>
+                        <span>Escalate</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Messages Container -->
+            <div class="messages-container" id="messages-container">
+                <div class="welcome-message" id="welcome-message">
+                    <div class="welcome-icon">🏰</div>
+                    <h2>Welcome to Castlery AI Support</h2>
+                    <p>I'm here to help you with NetSuite and TMS integration issues. Ask me anything!</p>
+                    <div class="quick-actions">
+                        <button class="quick-action" onclick="sendQuickMessage('How do I resolve sync errors?')">
+                            <i class="fas fa-sync"></i> Sync Errors
+                        </button>
+                        <button class="quick-action" onclick="sendQuickMessage('Help with order processing')">
+                            <i class="fas fa-shopping-cart"></i> Order Processing
+                        </button>
+                        <button class="quick-action" onclick="sendQuickMessage('Integration troubleshooting')">
+                            <i class="fas fa-plug"></i> Integration Help
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="messages" class="messages">
+                    <!-- Messages will be rendered here -->
+                </div>
+                
+                <div id="typing-indicator" class="typing-indicator hidden">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <span>AI is thinking...</span>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-area">
+                <div class="input-container">
+                    <div class="attachment-preview hidden" id="attachment-preview">
+                        <img id="preview-image" src="" alt="Preview">
+                        <button class="remove-attachment" onclick="removeAttachment()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="input-wrapper">
+                        <button class="attach-btn" onclick="document.getElementById('file-input').click()" title="Attach Screenshot">
+                            <i class="fas fa-paperclip"></i>
+                        </button>
+                        <input type="file" id="file-input" accept="image/jpeg,image/png" onchange="handleFileSelect(event)" hidden>
+                        <textarea 
+                            id="message-input" 
+                            placeholder="Describe your issue or ask a question..."
+                            rows="1"
+                            onkeydown="handleKeyDown(event)"
+                            oninput="autoResize(this)"
+                        ></textarea>
+                        <button class="send-btn" onclick="sendMessage()" id="send-btn">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <div class="input-hint">
+                        <span><i class="fas fa-image"></i> Max 5MB (JPEG, PNG)</span>
+                        <span><i class="fas fa-keyboard"></i> Press Enter to send</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Feedback Modal -->
+    <div class="modal hidden" id="feedback-modal">
+        <div class="modal-overlay" onclick="closeFeedbackModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>How was this response?</h3>
+                <button class="modal-close" onclick="closeFeedbackModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="feedback-question">
+                    <p>Did this answer your question?</p>
+                    <div class="feedback-options">
+                        <button class="feedback-btn" data-value="true" onclick="setFeedbackAnswer(true)">
+                            <i class="fas fa-check"></i> Yes
+                        </button>
+                        <button class="feedback-btn" data-value="false" onclick="setFeedbackAnswer(false)">
+                            <i class="fas fa-times"></i> No
+                        </button>
+                    </div>
+                </div>
+                <div class="feedback-question">
+                    <p>Was your problem solved?</p>
+                    <div class="feedback-options">
+                        <button class="feedback-btn" data-value="true" onclick="setFeedbackSolved(true)">
+                            <i class="fas fa-thumbs-up"></i> Solved
+                        </button>
+                        <button class="feedback-btn" data-value="false" onclick="setFeedbackSolved(false)">
+                            <i class="fas fa-thumbs-down"></i> Not Solved
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeFeedbackModal()">Cancel</button>
+                <button class="btn-primary" onclick="submitFeedback()" id="submit-feedback-btn" disabled>
+                    Submit Feedback
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Escalation Modal -->
+    <div class="modal hidden" id="escalation-modal">
+        <div class="modal-overlay" onclick="closeEscalationModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-headset"></i> Escalate to Human Support</h3>
+                <button class="modal-close" onclick="closeEscalationModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Your conversation will be sent to our support team. They will respond via email.</p>
+                <div class="form-group">
+                    <label for="escalation-reason">Reason for escalation (optional)</label>
+                    <textarea id="escalation-reason" placeholder="Please describe why you need human assistance..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeEscalationModal()">Cancel</button>
+                <button class="btn-primary btn-danger" onclick="confirmEscalation()">
+                    <i class="fas fa-paper-plane"></i> Send to Support
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast hidden" id="toast">
+        <i class="toast-icon fas fa-check-circle"></i>
+        <span class="toast-message"></span>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

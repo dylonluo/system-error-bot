@@ -1,80 +1,45 @@
-# Quick Start - Chat Interface Service
+# 🏰 Castlery AI Support - Quick Start
 
 ## 🚀 Run in 3 Steps
 
 ```bash
 # 1. Navigate to project
-cd /Users/dylonluo/system-error-bot/hackathon-2026-01-26/construction/unit1_chat_interface_service
+cd hackathon-2026-01-26/construction/unit1_chat_interface_service
 
 # 2. Install dependencies
-python3 -m pip install -e .
+pip install -e .
 
-# 3. Run demo
-python3 demo.py
+# 3. Run the service with UI
+python run.py
 ```
 
-## 📋 What You'll See
+## 🌐 Open the UI
 
-```
-================================================================================
-  Chat Interface Service - Demo
-  Unit 1: Chat Interface Context
-================================================================================
+Navigate to **http://localhost:8000** in your browser.
 
-Waiting for server to start...
+You'll see a beautiful chat interface where you can:
+- 💬 Chat with the AI assistant
+- 📎 Attach screenshots (JPEG/PNG, max 5MB)
+- 📚 Get documentation links
+- 👍 Provide feedback
+- 🎫 Escalate to human support
 
-================================================================================
-  1. Health Check
-================================================================================
+## 📋 API Demo (Optional)
 
-Status: 200
-Response:
-{
-  "status": "healthy",
-  "service": "chat-interface-service"
-}
+To run the API demo script:
 
-================================================================================
-  2. Submit First Message (Create Conversation Implicitly)
-================================================================================
-
-Status: 200
-Response:
-{
-  "message_id": "...",
-  "conversation_id": "...",
-  "role": "assistant",
-  "content": "Based on your query...",
-  "documentation_links": [...]
-}
-
-... and 8 more steps demonstrating the complete workflow
+```bash
+python demo.py
 ```
 
-## 🎯 Key Features Demonstrated
+## 🔍 API Documentation
 
-- ✅ Implicit conversation creation
-- ✅ Message submission with AI responses
-- ✅ Feedback collection
-- ✅ Conversation listing and retrieval
-- ✅ Escalation to human support
-- ✅ Domain invariant enforcement
-
-## 🔍 Explore the API
-
-While demo is running, visit:
+While the service is running, visit:
 - **Swagger UI:** http://localhost:8000/docs
 - **ReDoc:** http://localhost:8000/redoc
 - **Health Check:** http://localhost:8000/health
 
-## 📖 More Information
-
-- **Full Documentation:** README.md
-- **Setup Guide:** SETUP.md
-- **Implementation Details:** IMPLEMENTATION_SUMMARY.md
-- **Project Plan:** plan.md
-
-## 🛠️ Manual Testing
+## 🛠️ Manual API Testing
 
 ```bash
 # Health check
@@ -104,21 +69,13 @@ pwd
 # Should show: .../unit1_chat_interface_service
 ```
 
-**Python version?**
-```bash
-python3 --version
-# Should be 3.13 or higher (3.9+ will work)
-```
+## 📖 More Information
 
-## 🎓 Learning Path
-
-1. Run the demo ✅
-2. Read IMPLEMENTATION_SUMMARY.md
-3. Explore `src/domain/` - business logic
-4. Check `src/application/` - use cases
-5. Review `src/api/` - REST endpoints
-6. Modify and experiment!
+- **Full Documentation:** README.md
+- **Setup Guide:** SETUP.md
+- **Implementation Details:** IMPLEMENTATION_SUMMARY.md
+- **Test Plan:** test_plan.md
 
 ---
 
-**Ready to go? Run:** `python3 demo.py`
+**Ready to go?** Run `python run.py` and open http://localhost:8000 🎉

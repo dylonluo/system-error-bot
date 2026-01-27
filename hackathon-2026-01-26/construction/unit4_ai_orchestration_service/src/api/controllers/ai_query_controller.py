@@ -21,11 +21,12 @@ from ...domain.services import (
 )
 from ...domain.repositories import IAIQueryRepository
 from ...infrastructure.repositories import InMemoryAIQueryRepository
-from ...infrastructure.ai_providers import MockAIProvider
+from ...infrastructure.ai_providers import MockAIProvider, BedrockAIProvider
 from ...infrastructure.events import InMemoryEventPublisher
 from ...application.clients import (
     MockDocumentSearchClient,
     MockConversationContextClient,
+    DocumentRepositoryClient,
 )
 from ..middleware.error_handler import NotFoundError
 
@@ -35,6 +36,22 @@ router = APIRouter(prefix="/api/v1/ai", tags=["AI Orchestration"])
 _repository = InMemoryAIQueryRepository()
 _event_publisher = InMemoryEventPublisher()
 
+# Try to use Bedrock, fall back to Mock
+try:
+    _ai_provider = BedrockAIProvider(region="ap-southeast-1")
+    if not _ai_provider.is_available():
+        print("[AI Controller] Bedrock not available, using mock AI")
+        _ai_provider = MockAIProvider()
+except Exception as e:
+    print(f"[AI Controller] Could not initialize Bedrock: {e}, using mock")
+    _ai_provider = MockAIProvider()
+
+# Try to use real document client (Unit 3), fall back to mock
+_document_client = DocumentRepositoryClient()
+if not _document_client.is_available():
+    print("[AI Controller] Unit 3 not available, using mock documents")
+    _document_client = MockDocumentSearchClient()
+
 
 def get_process_service() -> ProcessAIQueryService:
     return ProcessAIQueryService(
@@ -42,8 +59,8 @@ def get_process_service() -> ProcessAIQueryService:
         prompt_service=PromptEngineeringService(),
         response_service=ResponseGenerationService(),
         confidence_service=ConfidenceCalculationService(),
-        ai_provider=MockAIProvider(),
-        document_client=MockDocumentSearchClient(),
+        ai_provider=_ai_provider,
+        document_client=_document_client,
         context_client=MockConversationContextClient(),
         repository=_repository,
         event_publisher=_event_publisher,

@@ -1,6 +1,9 @@
 """FastAPI application entry point"""
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from .controllers import conversation_controller, message_controller
 from .middleware.error_handler import error_handler_middleware
 from ..domain.services.screenshot_validation_service import ScreenshotValidationService
@@ -107,6 +110,15 @@ def create_app() -> FastAPI:
     @app.get("/health")
     async def health_check():
         return {"status": "healthy", "service": "chat-interface-service"}
+
+    # Serve frontend
+    frontend_path = Path(__file__).parent.parent.parent / "frontend"
+    if frontend_path.exists():
+        app.mount("/static", StaticFiles(directory=str(frontend_path)), name="static")
+        
+        @app.get("/")
+        async def serve_frontend():
+            return FileResponse(str(frontend_path / "index.html"))
 
     return app
 
