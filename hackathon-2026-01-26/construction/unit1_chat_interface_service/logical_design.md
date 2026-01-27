@@ -53,10 +53,11 @@
 **ConversationController**
 - **Responsibility:** Handle HTTP requests for conversation operations
 - **Endpoints:**
-  - `POST /api/v1/chat/conversations` → createConversation()
   - `GET /api/v1/chat/conversations` → listConversations()
   - `GET /api/v1/chat/conversations/{id}` → getConversation()
   - `POST /api/v1/chat/conversations/{id}/escalate` → escalateConversation()
+  
+**Note:** No explicit "create conversation" endpoint - conversations created implicitly on first message
 
 **MessageController**
 - **Responsibility:** Handle HTTP requests for message operations
@@ -67,10 +68,11 @@
 #### DTOs (Data Transfer Objects)
 
 **Request DTOs:**
-- CreateConversationRequest
-- SubmitMessageRequest (includes query text, optional screenshot)
+- SubmitMessageRequest (includes query text, optional screenshot, optional conversationId)
 - SubmitFeedbackRequest
 - EscalateConversationRequest
+
+**Note:** SubmitMessageRequest includes optional conversationId - if null, new conversation created implicitly
 
 **Response DTOs:**
 - ConversationResponse
@@ -89,13 +91,18 @@
 - **Responsibility:** Orchestrate query submission workflow
 - **Key Operations:**
   - validateAuthentication() - Call Access Control Context
-  - validateScreenshot() - Call ScreenshotValidationService
-  - getOrCreateConversation() - Retrieve or create conversation
+  - validateScreenshot() - Call ScreenshotValidationService (if screenshot present)
+  - **getOrCreateConversation()** - Retrieve existing conversation by ID, or create new if conversationId is null
   - addUserMessage() - Add message to conversation
   - processQuery() - Call AI Orchestration Context
   - addAssistantResponse() - Add AI response to conversation
-  - publishEvents() - Publish MessageAdded events
+  - publishEvents() - Publish MessageAdded events (and ConversationCreated if new)
   - recordAnalytics() - Call Communication & Analytics Context
+  
+**First Message Behavior:**
+- If conversationId is null in request: Create new conversation, generate ConversationId, publish ConversationCreated event
+- If conversationId provided: Retrieve existing conversation, validate ownership
+- Return conversationId in response for subsequent messages
 
 **SubmitFeedbackApplicationService**
 - **Responsibility:** Orchestrate feedback submission

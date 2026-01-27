@@ -11,21 +11,34 @@
 
 ## Bounded Context Definition
 
-**Purpose:** Process user queries using AI, orchestrate document retrieval, and generate responses with documentation links.
+**Purpose:** Orchestrate AI query processing, manage conversation context, and generate responses with documentation links.
 
 **Responsibilities:**
-- Process user queries and detect intent
+- **Prompt construction**: Build optimized prompts for AI models
+- **Model invocation**: Call AI services (AWS Bedrock, OpenAI) via adapters
+- Detect user intent from query text
 - Manage conversation context (last 5 messages)
-- Orchestrate document search
+- Orchestrate document search (delegate to Document Repository Context)
 - Generate AI responses with documentation links
 - Determine when to suggest escalation
-- Track AI usage and costs
+- Track AI usage metrics (tokens, cost, latency)
+
+**Separation of Concerns:**
+- **Prompt construction** (domain logic): PromptEngineeringService builds prompts with context
+- **Model invocation** (infrastructure): IAIProvider adapters handle actual AI API calls
+- **Model configuration versioning**: Prompt templates and model parameters versioned in domain layer
 
 **What This Context Does NOT Do:**
 - Store conversations (belongs to Chat Interface Context)
 - Authenticate users (delegates to Access Control Context)
 - Search documents directly (delegates to Document Repository Context)
-- Call AI services directly (uses infrastructure adapters)
+- Implement business rules (this is orchestration-only - no domain rules beyond AI processing logic)
+
+**Observability Metrics:**
+- **Latency**: Total processing time, AI call time, document search time
+- **Tokens**: Input tokens, output tokens, total tokens per query
+- **Failures**: AI service errors, timeout count, fallback usage
+- **Cost**: Per-query cost in USD, daily/monthly aggregates
 
 ---
 
@@ -269,22 +282,34 @@
 
 ### Prompt
 
+**Purpose:** Encapsulates prompt construction logic with versioning support
+
 **Attributes:**
 - systemPrompt: String
 - userPrompt: String
 - context: List<ContextMessage>
 - temperature: Float (0.0-1.0)
 - maxTokens: Integer
+- **promptVersion**: String (e.g., "v1.0", "v1.1") - tracks prompt template version
+- **modelConfig**: ModelConfiguration (model name, parameters)
 
 **Behaviors:**
 - build(): String
 - addContext(messages): void
 - estimateTokens(): Integer
+- getVersion(): String
+
+**Model Configuration Versioning:**
+- Prompt templates versioned independently (v1.0, v1.1, etc.)
+- Model configurations tracked (model name, temperature, max tokens)
+- Changes to prompts or model configs logged for A/B testing and rollback
+- Version stored with each AIQuery for audit trail
 
 **Invariants:**
 - System prompt must not be empty
 - Temperature between 0.0 and 1.0
 - Max tokens must be positive
+- Prompt version must be specified
 
 ---
 

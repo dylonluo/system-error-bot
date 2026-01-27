@@ -15,15 +15,38 @@
 
 **Responsibilities:**
 - Send escalation emails to support team
-- Collect and store analytics events
+- Collect and store analytics events (read-only consumption of events from other units)
 - Calculate usage metrics
 - Generate dashboard data for administrators
 - Track resolution rates and query patterns
+
+**Read-Only Nature:**
+- This unit **consumes events** from other units but **does not write back** to them
+- Analytics events are append-only (immutable)
+- No commands sent to other units - purely event-driven data collection
+- Dashboard provides read-only views of aggregated data
+
+**Domain Events Consumed:**
+- ConversationCreated (from Chat Interface)
+- MessageAdded (from Chat Interface)
+- FeedbackSubmitted (from Chat Interface)
+- ConversationEscalated (from Chat Interface)
+- QueryProcessed (from AI Orchestration)
+- UserAuthenticated (from Access Control)
+- DocumentAccessed (from Document Repository)
+
+**Data Freshness & Consistency:**
+- **Event processing**: Near real-time (within seconds of event publication)
+- **Metrics calculation**: Daily batch processing at midnight UTC
+- **Dashboard data**: Up to 24 hours stale (acceptable for MVP)
+- **Eventual consistency**: Analytics may lag behind source systems by seconds to minutes
+- **No strong consistency guarantees** - analytics are informational, not transactional
 
 **What This Context Does NOT Do:**
 - Own conversation data (reads from Chat Interface Context)
 - Authenticate users (delegates to Access Control Context)
 - Process queries (belongs to AI Orchestration Context)
+- **Write back to other units** - strictly read-only consumption
 
 ---
 
@@ -149,6 +172,12 @@
 - canRetry(): Boolean
 - getConversationHistory(): String
 
+**Ownership & Immutability:**
+- **Ownership**: EscalationEmail aggregate owns the email lifecycle and delivery status
+- **Immutability**: Once sent successfully, email content is immutable (cannot be modified)
+- **Audit trail**: All state changes (queued → sent/failed) recorded with timestamps
+- **Append-only history**: Retry attempts appended to audit log, original email preserved
+
 **Business Rules:**
 - Maximum 3 retry attempts
 - Retry delay: exponential backoff (1min, 5min, 15min)
@@ -175,6 +204,12 @@
 - getMetadata(key): String
 - hasMetadata(key): Boolean
 - toJSON(): String
+
+**Immutability & Append-Only:**
+- **Events are immutable** - once recorded, cannot be modified or deleted (except by retention policy)
+- **Append-only log**: New events always appended, never updated
+- **Audit trail**: Complete history of all system events preserved
+- **Retention policy**: Events deleted after 30 days (batch cleanup), not individual deletions
 
 **Business Rules:**
 - Events are immutable

@@ -55,11 +55,17 @@
 - Screenshots must not exceed 5MB
 
 **Lifecycle:**
-- Created when user submits first query
+- **Created implicitly** when user submits first message (no explicit "create conversation" API call required)
 - Active while user interacts
 - Resolved when user marks problem as solved
 - Escalated when user requests human support
 - Deleted after 30 days of inactivity
+
+**Conversation Creation Strategy (MVP):**
+- **Implicit creation**: Conversation is created automatically on first message submission
+- No separate "create conversation" endpoint needed
+- ConversationId generated server-side and returned with first message response
+- Subsequent messages reference the ConversationId
 
 ---
 
@@ -120,6 +126,8 @@
 - Feedback can only be submitted once per message
 - Content cannot be empty
 - Messages are immutable after creation (except feedback)
+- **Message ordering**: Messages ordered by timestamp (ascending) within a conversation
+- **First message behavior**: First user message triggers conversation creation implicitly
 
 ---
 
@@ -160,9 +168,11 @@
 
 ### Screenshot
 
+**Purpose:** Metadata reference to uploaded screenshot, NOT the binary content itself
+
 **Attributes:**
-- filename: String
-- content: Base64String (or file path)
+- filename: String (sanitized)
+- storageUrl: String (reference to file storage location)
 - mimeType: String (image/jpeg, image/png)
 - size: Integer (bytes)
 - uploadedAt: Timestamp
@@ -170,12 +180,14 @@
 **Behaviors:**
 - isValidFormat(): boolean
 - isWithinSizeLimit(): boolean
-- getUrl(): String
+- getStorageUrl(): String
 
 **Invariants:**
 - Size must not exceed 5MB (5,242,880 bytes)
 - MIME type must be image/jpeg or image/png
 - Filename must not be empty
+- **Screenshot is metadata only** - actual binary content stored in infrastructure layer (file system/S3)
+- storageUrl points to the actual file location
 
 ---
 

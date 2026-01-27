@@ -761,4 +761,5 @@ SearchQuery (Aggregate Root)
 - Relevance ranking is a key differentiator
 - Access control is delegated to Access Control Context
 - MVP focuses on S3 and Confluence (ClickUp and SuiteAnswers deferred)
+- **Orchestration-only**: This service orchestrates document search and retrieval but does NOT implement business rules beyond search relevance
 

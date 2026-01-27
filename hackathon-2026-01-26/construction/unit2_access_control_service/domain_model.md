@@ -21,6 +21,13 @@
 - Provide centralized permission verification
 - Audit security events
 
+**MVP Authorization Scope:**
+- **Two roles only**: END_USER, ADMINISTRATOR
+- **Two access levels**: BASIC (for end users), ALL (for administrators)
+- **Document filtering**: Based on access level (public, basic, advanced)
+- **Feature access**: Conversation ownership, dashboard access (admin only)
+- **Future-ready entities**: User, Role, Permission structures designed to support fine-grained RBAC post-MVP
+
 **What This Context Does NOT Do:**
 - Store conversation data (belongs to Chat Interface Context)
 - Process AI queries (belongs to AI Orchestration Context)
@@ -132,7 +139,7 @@
 - Refresh token expires after 7 days
 - Expired sessions cannot be refreshed
 - Revoked sessions cannot be reactivated
-- Session activity updated on each API call
+- **Session activity tracking**: lastActivityAt updated on each validated API call (responsibility of this service, not delegated)
 
 ---
 
