@@ -1,0 +1,5 @@
+"""Infrastructure Events - Event publishing implementations."""
+
+from .in_memory_event_publisher import InMemoryEventPublisher
+
+__all__ = ['InMemoryEventPublisher']
