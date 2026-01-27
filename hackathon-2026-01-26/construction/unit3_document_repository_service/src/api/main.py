@@ -18,6 +18,21 @@ from ..domain.services.relevance_ranking_service import RelevanceRankingService
 from ..infrastructure.adapters.in_memory_cache_provider import InMemoryCacheProvider
 from ..infrastructure.adapters.mock_access_control_client import MockAccessControlClient
 from ..infrastructure.adapters.mock_s3_search_adapter import MockS3SearchAdapter
+
+# Try to use real S3 adapter, fall back to mock if AWS credentials not available
+try:
+    from ..infrastructure.adapters.s3_search_adapter import S3SearchAdapter
+    s3_adapter = S3SearchAdapter(
+        bucket_name="cslr-hackathon-sg-test",
+        prefix="Byte-Us-Rawr/PDF/",
+        region="ap-southeast-1"
+    )
+    if not s3_adapter.is_available():
+        print("[Main] Real S3 adapter not available, falling back to mock")
+        s3_adapter = MockS3SearchAdapter()
+except Exception as e:
+    print(f"[Main] Could not initialize S3 adapter: {e}, using mock")
+    s3_adapter = MockS3SearchAdapter()
 from ..infrastructure.events.in_memory_event_publisher import InMemoryEventPublisher
 from ..infrastructure.repositories.in_memory_document_repository import (
     InMemoryDocumentRepository,
@@ -30,10 +45,11 @@ from .controllers.document_search_controller import DocumentSearchController
 # Initialize infrastructure components
 document_repository = InMemoryDocumentRepository()
 search_query_repository = InMemorySearchQueryRepository()
-s3_adapter = MockS3SearchAdapter()
 access_control_client = MockAccessControlClient()
 cache_provider = InMemoryCacheProvider()
 event_publisher = InMemoryEventPublisher()
+
+# s3_adapter is initialized above (real or mock)
 
 # Initialize domain services
 ranking_service = RelevanceRankingService()

@@ -41,6 +41,10 @@ class SubmitQueryApplicationService:
 
     def execute(self, request: SubmitMessageRequest, token: str) -> MessageResponse:
         """Execute submit query use case"""
+        # 0. Validate query is not empty
+        if not request.query_text or not request.query_text.strip():
+            raise ValueError("Query text cannot be empty")
+        
         # 1. Validate authentication
         user = self._access_control_client.validate_token(token)
 
