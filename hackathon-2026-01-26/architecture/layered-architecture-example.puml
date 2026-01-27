@@ -1,0 +1,140 @@
+@startuml Layered Architecture - AI Query Processing
+
+!define DOMAIN_COLOR #E8F5E9
+!define APPLICATION_COLOR #E3F2FD
+!define INFRASTRUCTURE_COLOR #FFF3E0
+
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName Arial
+
+' Application Layer
+package "Application Layer" APPLICATION_COLOR {
+  class ProcessAIQueryApplicationService {
+    - aiProvider: IAIProvider
+    - queryProcessor: AIQueryProcessor
+    - documentService: IDocumentService
+    - accessFilterService: DocumentAccessFilteringService
+    --
+    + processQuery(query: String, userId: String): Response
+    --
+    1. Validate query (domain service)
+    2. Get AI response (IAIProvider)
+    3. Search docs (Unit 3)
+    4. Filter docs (domain service)
+    5. Return response
+  }
+}
+
+' Domain Layer
+package "Domain Layer" DOMAIN_COLOR {
+  
+  class AIQueryProcessor <<Domain Service>> {
+    + validateQuery(query: String): boolean
+    + determineIntent(query: String): Intent
+    + shouldEscalate(confidence: float): boolean
+  }
+  
+  class DocumentAccessFilteringService <<Domain Service>> {
+    + filterByAccess(docs: List<Document>, user: User): List<Document>
+  }
+  
+  interface IAIProvider <<Port>> {
+    + generateResponse(prompt: String): AIResponse
+  }
+  
+  interface IDocumentService <<Port>> {
+    + searchDocuments(query: String): List<Document>
+  }
+  
+  enum Intent {
+    ERROR_TROUBLESHOOTING
+    TASK_GUIDANCE
+    GENERAL_QUESTION
+  }
+  
+  class Response {
+    - content: String
+    - documentLinks: List<Document>
+    - confidence: float
+    - suggestEscalation: boolean
+  }
+  
+  class AIResponse {
+    - content: String
+    - confidence: float
+    - processingTime: float
+  }
+}
+
+' Infrastructure Layer
+package "Infrastructure Layer" INFRASTRUCTURE_COLOR {
+  
+  class BedrockAIProvider {
+    - awsClient: BedrockClient
+    - apiKey: String
+    - region: String
+    --
+    + generateResponse(prompt: String): AIResponse
+    - callBedrockAPI(prompt: String): String
+    - handleRetry(): void
+    - parseResponse(raw: String): AIResponse
+  }
+  
+  class OpenAIProvider {
+    - openAIClient: OpenAIClient
+    - apiKey: String
+    --
+    + generateResponse(prompt: String): AIResponse
+    - callOpenAIAPI(prompt: String): String
+    - handleRetry(): void
+    - parseResponse(raw: String): AIResponse
+  }
+  
+  class DocumentRepositoryAdapter {
+    - s3Client: S3Client
+    - confluenceClient: ConfluenceClient
+    --
+    + searchDocuments(query: String): List<Document>
+    - searchS3(query: String): List<Document>
+    - searchConfluence(query: String): List<Document>
+  }
+  
+  note right of BedrockAIProvider
+    Handles AWS-specific:
+    - Authentication
+    - API calls
+    - Retries
+    - Error handling
+  end note
+}
+
+' Relationships
+ProcessAIQueryApplicationService --> AIQueryProcessor : uses
+ProcessAIQueryApplicationService --> DocumentAccessFilteringService : uses
+ProcessAIQueryApplicationService --> IAIProvider : depends on
+ProcessAIQueryApplicationService --> IDocumentService : depends on
+ProcessAIQueryApplicationService ..> Response : creates
+ProcessAIQueryApplicationService ..> Intent : uses
+
+AIQueryProcessor ..> Intent : returns
+IAIProvider ..> AIResponse : returns
+
+BedrockAIProvider ..|> IAIProvider : implements
+OpenAIProvider ..|> IAIProvider : implements
+DocumentRepositoryAdapter ..|> IDocumentService : implements
+
+' Layer dependencies (showing clean architecture)
+note as N1
+  **Dependency Rule:**
+  - Application depends on Domain
+  - Infrastructure depends on Domain
+  - Domain depends on nothing
+  
+  **Benefits:**
+  - Easy to test (mock interfaces)
+  - Easy to swap providers
+  - Business logic isolated
+end note
+
+@enduml

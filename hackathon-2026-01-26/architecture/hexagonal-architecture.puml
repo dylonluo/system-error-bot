@@ -1,0 +1,161 @@
+@startuml Hexagonal Architecture - Ports and Adapters
+
+!define CORE_COLOR #E8F5E9
+!define PORT_COLOR #BBDEFB
+!define ADAPTER_COLOR #FFF3E0
+
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName Arial
+
+' Core Domain (Hexagon)
+package "Core Domain\n(Business Logic)" CORE_COLOR {
+  
+  package "Domain Services" {
+    class AIQueryProcessor {
+      + validateQuery()
+      + determineIntent()
+      + shouldEscalate()
+    }
+    
+    class DocumentAccessFilteringService {
+      + filterByAccess()
+    }
+  }
+  
+  package "Application Services" {
+    class ProcessAIQueryApplicationService {
+      + processQuery()
+    }
+  }
+  
+  package "Domain Model" {
+    class Query
+    class Response
+    class Document
+    class User
+  }
+}
+
+' Ports (Interfaces)
+package "Ports (Interfaces)" PORT_COLOR {
+  
+  interface IAIProvider <<Outbound Port>> {
+    + generateResponse(prompt): AIResponse
+  }
+  
+  interface IDocumentRepository <<Outbound Port>> {
+    + searchDocuments(query): List<Document>
+  }
+  
+  interface IAccessControlService <<Outbound Port>> {
+    + getUserPermissions(userId): User
+  }
+  
+  interface IQueryAPI <<Inbound Port>> {
+    + processQuery(query, userId): Response
+  }
+}
+
+' Adapters (Infrastructure)
+package "Adapters (Infrastructure)" ADAPTER_COLOR {
+  
+  ' Outbound Adapters
+  class BedrockAIProvider {
+    + generateResponse()
+  }
+  
+  class OpenAIProvider {
+    + generateResponse()
+  }
+  
+  class S3ConfluenceAdapter {
+    + searchDocuments()
+  }
+  
+  class AccessControlAPIAdapter {
+    + getUserPermissions()
+  }
+  
+  ' Inbound Adapters
+  class RESTController {
+    + POST /api/v1/ai/process-query
+  }
+  
+  class GraphQLResolver {
+    + processQuery()
+  }
+}
+
+' External Systems
+cloud "External Systems" {
+  [AWS Bedrock]
+  [OpenAI API]
+  [S3 Bucket]
+  [Confluence]
+  [Access Control Service]
+}
+
+' Relationships - Core to Ports
+ProcessAIQueryApplicationService --> IAIProvider : uses
+ProcessAIQueryApplicationService --> IDocumentRepository : uses
+ProcessAIQueryApplicationService --> IAccessControlService : uses
+ProcessAIQueryApplicationService ..|> IQueryAPI : implements
+
+ProcessAIQueryApplicationService --> AIQueryProcessor : uses
+ProcessAIQueryApplicationService --> DocumentAccessFilteringService : uses
+
+' Relationships - Ports to Adapters (Outbound)
+BedrockAIProvider ..|> IAIProvider : implements
+OpenAIProvider ..|> IAIProvider : implements
+S3ConfluenceAdapter ..|> IDocumentRepository : implements
+AccessControlAPIAdapter ..|> IAccessControlService : implements
+
+' Relationships - Adapters to External Systems
+BedrockAIProvider --> [AWS Bedrock] : calls
+OpenAIProvider --> [OpenAI API] : calls
+S3ConfluenceAdapter --> [S3 Bucket] : calls
+S3ConfluenceAdapter --> [Confluence] : calls
+AccessControlAPIAdapter --> [Access Control Service] : calls
+
+' Relationships - Inbound Adapters to Ports
+RESTController --> IQueryAPI : calls
+GraphQLResolver --> IQueryAPI : calls
+
+' Notes
+note right of IAIProvider
+  **Outbound Port**
+  Defines contract for AI providers
+  Core domain doesn't know about
+  AWS Bedrock or OpenAI
+end note
+
+note left of IQueryAPI
+  **Inbound Port**
+  Defines contract for incoming requests
+  Core domain doesn't know about
+  REST or GraphQL
+end note
+
+note bottom of BedrockAIProvider
+  **Adapter (Infrastructure)**
+  - Implements port interface
+  - Handles AWS-specific details
+  - Can be swapped without
+    changing core domain
+end note
+
+legend right
+  |= Color |= Layer |
+  | <back:CORE_COLOR>   </back> | Core Domain (Business Logic) |
+  | <back:PORT_COLOR>   </back> | Ports (Interfaces/Contracts) |
+  | <back:ADAPTER_COLOR>   </back> | Adapters (Infrastructure) |
+  
+  **Benefits:**
+  • Core domain is independent
+  • Easy to test (mock ports)
+  • Easy to swap adapters
+  • Technology agnostic core
+endlegend
+
+@enduml

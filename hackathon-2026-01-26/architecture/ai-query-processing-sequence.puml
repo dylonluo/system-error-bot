@@ -1,0 +1,99 @@
+@startuml AI Query Processing Sequence
+
+!define DOMAIN_COLOR #E8F5E9
+!define APPLICATION_COLOR #E3F2FD
+!define INFRASTRUCTURE_COLOR #FFF3E0
+
+skinparam sequenceMessageAlign center
+skinparam shadowing false
+skinparam defaultFontName Arial
+
+actor User
+participant "Chat Interface\n(Unit 1)" as UI
+participant "ProcessAIQuery\nApplicationService" as AppService APPLICATION_COLOR
+participant "AIQueryProcessor\n(Domain Service)" as DomainService DOMAIN_COLOR
+participant "IAIProvider\n(Interface)" as Interface DOMAIN_COLOR
+participant "BedrockAIProvider\n(Infrastructure)" as Bedrock INFRASTRUCTURE_COLOR
+participant "DocumentAccess\nFilteringService\n(Domain Service)" as FilterService DOMAIN_COLOR
+participant "Document\nRepository\n(Unit 3)" as DocRepo
+
+User -> UI: Submit query:\n"How to create sales order?"
+activate UI
+
+UI -> AppService: processQuery(query, userId)
+activate AppService
+
+' Step 1: Validate query
+AppService -> DomainService: validateQuery(query)
+activate DomainService
+DomainService --> AppService: true
+deactivate DomainService
+
+AppService -> DomainService: determineIntent(query)
+activate DomainService
+DomainService --> AppService: Intent.TASK_GUIDANCE
+deactivate DomainService
+
+' Step 2: Get AI response
+AppService -> Interface: generateResponse(prompt)
+activate Interface
+Interface -> Bedrock: generateResponse(prompt)
+activate Bedrock
+
+note right of Bedrock
+  Infrastructure Layer:
+  - Calls AWS Bedrock API
+  - Handles authentication
+  - Manages retries
+  - Parses response
+end note
+
+Bedrock -> Bedrock: callBedrockAPI()
+Bedrock -> Bedrock: parseResponse()
+Bedrock --> Interface: AIResponse\n(content, confidence)
+deactivate Bedrock
+Interface --> AppService: AIResponse
+deactivate Interface
+
+' Step 3: Search documents
+AppService -> DocRepo: searchDocuments(query)
+activate DocRepo
+DocRepo --> AppService: List<Document>\n(10 documents)
+deactivate DocRepo
+
+' Step 4: Filter documents by access
+AppService -> FilterService: filterByAccess(docs, user)
+activate FilterService
+
+note right of FilterService
+  Domain Service:
+  - Applies business rules
+  - Checks user permissions
+  - Filters by access level
+end note
+
+FilterService --> AppService: List<Document>\n(5 filtered documents)
+deactivate FilterService
+
+' Step 5: Check if escalation needed
+AppService -> DomainService: shouldEscalate(confidence)
+activate DomainService
+DomainService --> AppService: false
+deactivate DomainService
+
+' Step 6: Return response
+AppService --> UI: Response\n(content + 5 doc links)
+deactivate AppService
+
+UI --> User: Display AI response\nwith documentation links
+deactivate UI
+
+note over User, DocRepo
+  **Key Points:**
+  1. Application Service orchestrates the workflow
+  2. Domain Services contain business logic
+  3. Infrastructure (Bedrock) is hidden behind interface
+  4. Easy to swap Bedrock for OpenAI without changing workflow
+end note
+
+@enduml
