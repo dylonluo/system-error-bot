@@ -1,0 +1,14 @@
+# Access Control Service Configuration
+# This file contains configuration settings for the service
+
+# JWT Secret Key (change this in production!)
+jwt_secret=demo-secret-key-change-in-production
+
+# Rate Limiting Configuration
+max_failed_attempts=5
+rate_limit_window_minutes=15
+
+# Token Expiration (in seconds)
+# For demo: 5 minutes for access token, 1 hour for refresh token
+access_token_expiry_seconds=300
+refresh_token_expiry_seconds=3600
