@@ -250,6 +250,11 @@ hackathon-2026-01-26/construction/unit1_chat_interface_service/
   - uvicorn
   - pydantic
   - python-multipart (for file uploads)
+- [x] Create `pyproject.toml` with:
+  - Python 3.13 configuration
+  - Project metadata
+  - Dependencies and optional dev dependencies
+  - Tool configurations (Black, Ruff, MyPy, Pytest)
 
 ---
 

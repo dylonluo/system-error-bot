@@ -56,7 +56,7 @@ src/
 
 ### Prerequisites
 
-- Python 3.11 or higher
+- Python 3.13 or higher
 - pip
 
 ### Installation
@@ -66,9 +66,21 @@ src/
 cd hackathon-2026-01-26/construction/unit1_chat_interface_service
 ```
 
-2. Install dependencies:
+2. Install dependencies (choose one method):
+
+**Method A: Using pyproject.toml (Recommended)**
+```bash
+pip install -e .
+```
+
+**Method B: Using requirements.txt**
 ```bash
 pip install -r requirements.txt
+```
+
+**Method C: Install with dev dependencies**
+```bash
+pip install -e ".[dev]"
 ```
 
 ## Running the Demo
