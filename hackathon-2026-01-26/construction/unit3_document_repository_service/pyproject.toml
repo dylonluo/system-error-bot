@@ -1,0 +1,16 @@
+[project]
+name = "unit3-document-repository-service"
+version = "1.0.0"
+description = "Document Repository Service - Search and retrieve documentation from external sources"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "pydantic>=2.5.3",
+    "python-multipart>=0.0.6",
+    "requests>=2.31.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
