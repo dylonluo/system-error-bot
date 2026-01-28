@@ -6,28 +6,34 @@ from ..entities import ContextMessage
 class PromptEngineeringService:
     """Builds optimized prompts for AI provider with RAG support."""
 
-    SYSTEM_PROMPT = """You are a helpful documentation assistant for NetSuite and TMS (Transportation Management System).
-Your role is to provide accurate, concise answers based on the company's internal documentation.
-Focus on troubleshooting errors, guiding users through tasks, and answering system-related questions.
-Always be professional and helpful.
+    SYSTEM_PROMPT_NO_DOCS = """You are a helpful documentation assistant for NetSuite and TMS (Transportation Management System).
 
-IMPORTANT: Base your answers primarily on the provided documentation context. If the documentation 
-doesn't contain relevant information, say so and provide general guidance while suggesting 
-the user escalate to human support for specific details."""
+IMPORTANT: No relevant documentation was found for this query.
 
-    SYSTEM_PROMPT_WITH_RAG = """You are a helpful documentation assistant for NetSuite and TMS (Transportation Management System).
-Your role is to provide accurate, concise answers based on the company's internal documentation.
+Your response MUST be:
+"I searched through our documentation but couldn't find specific information related to your question. Please escalate this to the relevant support personnel for assistance."
 
-CRITICAL INSTRUCTIONS:
-1. Base your answers PRIMARILY on the "RELEVANT DOCUMENTATION" section provided below.
-2. Quote or reference specific information from the documentation when answering.
-3. If the documentation contains the answer, use it directly.
-4. If the documentation is partially relevant, use what's available and note any gaps.
-5. If the documentation doesn't help, say "Based on the available documentation, I couldn't find specific information about this. Here's general guidance..." and suggest escalation.
-6. Always mention which document(s) you're referencing in your answer.
+Do not make up information. Do not provide generic advice. Simply acknowledge that no documentation was found and recommend escalation."""
 
-Focus on troubleshooting errors, guiding users through tasks, and answering system-related questions.
-Always be professional and helpful."""
+    SYSTEM_PROMPT_WITH_DOCS = """You are a helpful documentation assistant for NetSuite and TMS (Transportation Management System).
+
+You have been provided with RELEVANT DOCUMENTATION below. Your job is to:
+
+1. READ and UNDERSTAND the documentation provided
+2. FIND the specific information that answers the user's question
+3. SUMMARIZE the relevant steps or information in your own words
+4. QUOTE specific details from the documentation when helpful
+5. ALWAYS mention which document(s) you're referencing
+
+RESPONSE FORMAT:
+- Start with a direct answer to the question
+- Provide step-by-step instructions if the documentation contains them
+- Summarize what the document explains
+- Reference the document title(s) you used
+
+If the documentation doesn't fully answer the question, say what you found and suggest escalation for the remaining parts.
+
+Be concise but thorough. Use bullet points for steps."""
 
     def build_prompt(
         self,
@@ -37,7 +43,9 @@ Always be professional and helpful."""
         document_context: Optional[str] = None,
     ) -> Prompt:
         """Build a complete prompt for the AI provider with optional RAG context."""
-        system_prompt = self._build_system_prompt(intent, has_doc_context=bool(document_context))
+        has_docs = bool(document_context and document_context.strip())
+        
+        system_prompt = self._build_system_prompt(intent, has_docs)
         user_prompt = self._build_user_prompt(query_text, intent, document_context)
         context = self._format_context(context_messages)
 
@@ -45,18 +53,21 @@ Always be professional and helpful."""
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             context=context,
-            temperature=0.3,
-            max_tokens=800,  # Increased for more detailed responses
+            temperature=0.2 if has_docs else 0.1,  # Lower temp for more consistent responses
+            max_tokens=1000,
         )
 
-    def _build_system_prompt(self, intent: Intent, has_doc_context: bool = False) -> str:
-        """Build system prompt based on intent and whether we have document context."""
-        base = self.SYSTEM_PROMPT_WITH_RAG if has_doc_context else self.SYSTEM_PROMPT
+    def _build_system_prompt(self, intent: Intent, has_docs: bool = False) -> str:
+        """Build system prompt based on whether we have document context."""
+        if not has_docs:
+            return self.SYSTEM_PROMPT_NO_DOCS
+        
+        base = self.SYSTEM_PROMPT_WITH_DOCS
         
         if intent.intent_type == IntentType.ERROR_TROUBLESHOOTING:
-            base += "\n\nFor error troubleshooting: Focus on identifying the root cause and providing step-by-step resolution."
+            base += "\n\nThis is an ERROR TROUBLESHOOTING query. Focus on:\n- Root cause identification\n- Step-by-step resolution\n- Any error codes or specific fixes mentioned in the docs"
         elif intent.intent_type == IntentType.TASK_GUIDANCE:
-            base += "\n\nFor task guidance: Provide clear, numbered step-by-step instructions."
+            base += "\n\nThis is a TASK GUIDANCE query. Focus on:\n- Clear numbered steps\n- Prerequisites or requirements\n- Expected outcomes"
         
         return base
 
@@ -70,10 +81,13 @@ Always be professional and helpful."""
         parts = []
         
         # Add document context if available
-        if document_context:
-            parts.append("=== RELEVANT DOCUMENTATION ===")
+        if document_context and document_context.strip():
+            parts.append("=" * 50)
+            parts.append("RELEVANT DOCUMENTATION:")
+            parts.append("=" * 50)
             parts.append(document_context)
-            parts.append("=== END DOCUMENTATION ===\n")
+            parts.append("=" * 50)
+            parts.append("")
         
         # Add the user's question
         parts.append("USER QUESTION:")
@@ -84,8 +98,9 @@ Always be professional and helpful."""
         
         parts.append(prompt)
         
-        if document_context:
-            parts.append("\nPlease answer based on the documentation provided above. Reference the specific document(s) in your response.")
+        if document_context and document_context.strip():
+            parts.append("")
+            parts.append("Please read the documentation above carefully and provide a helpful answer based on what you find. Summarize the relevant information and reference which document(s) you used.")
         
         return "\n".join(parts)
 
