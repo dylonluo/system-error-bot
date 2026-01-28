@@ -1,5 +1,5 @@
 import time
-from typing import List
+from typing import List, Optional
 
 from ...domain.aggregates import AIQuery
 from ...domain.services import (
@@ -19,7 +19,7 @@ from ..dtos import ProcessQueryRequest, ProcessQueryResponse, DocumentationLinkR
 
 
 class ProcessAIQueryService:
-    """Main application service for processing AI queries."""
+    """Main application service for processing AI queries with RAG support."""
 
     def __init__(
         self,
@@ -44,7 +44,7 @@ class ProcessAIQueryService:
         self._event_publisher = event_publisher
 
     def execute(self, request: ProcessQueryRequest) -> ProcessQueryResponse:
-        """Process an AI query end-to-end."""
+        """Process an AI query end-to-end with RAG."""
         start_time = time.time()
 
         # Create aggregate
@@ -68,19 +68,22 @@ class ProcessAIQueryService:
         if intent.is_off_topic():
             return self._handle_off_topic(ai_query, start_time)
 
-        # Build prompt and call AI
+        # Search documents FIRST to get RAG context
+        doc_start = time.time()
+        documents = self._document_client.search(request.query)
+        
+        # Get document content for RAG if client supports it
+        document_context = self._get_rag_context(request.query)
+        doc_time_ms = int((time.time() - doc_start) * 1000)
+
+        # Build prompt WITH document context and call AI
         ai_start = time.time()
         prompt = self._prompt_service.build_prompt(
-            request.query, intent, context_messages
+            request.query, intent, context_messages, document_context
         )
         ai_response = self._ai_provider.generate_response(prompt)
         ai_query.set_ai_response(ai_response)
         ai_time_ms = int((time.time() - ai_start) * 1000)
-
-        # Search documents
-        doc_start = time.time()
-        documents = self._document_client.search(request.query)
-        doc_time_ms = int((time.time() - doc_start) * 1000)
 
         # Generate response
         response_data = self._response_service.generate_response(ai_response, documents)
@@ -176,3 +179,16 @@ class ProcessAIQueryService:
             processing_time_ms=processing_time_ms,
             intent=ai_query.intent.intent_type.value if ai_query.intent else "",
         )
+
+    def _get_rag_context(self, query: str) -> Optional[str]:
+        """Get document context for RAG if the client supports it."""
+        # Check if document client has RAG capabilities
+        if hasattr(self._document_client, 'get_context_for_query'):
+            try:
+                context = self._document_client.get_context_for_query(query, max_tokens=2000)
+                if context:
+                    print(f"[RAG] Retrieved {len(context)} chars of document context")
+                    return context
+            except Exception as e:
+                print(f"[RAG] Error getting context: {e}")
+        return None
