@@ -71,6 +71,8 @@ class AIOrchestrationClient:
             import uuid
             conversation_uuid = str(uuid.uuid4())
             
+            print(f"[AI Client] Calling Unit 4 with query: {query[:50]}...")
+            
             response = requests.post(
                 f"{self._unit4_url}/api/v1/ai/process-query",
                 json={
@@ -78,14 +80,15 @@ class AIOrchestrationClient:
                     "user_id": user_id,
                     "conversation_id": conversation_uuid,
                 },
-                timeout=30  # AI can take time
+                timeout=60  # Increased timeout - AI + RAG can take time
             )
 
             if response.status_code != 200:
-                print(f"[AI Client] Unit 4 returned {response.status_code}")
+                print(f"[AI Client] Unit 4 returned {response.status_code}: {response.text[:200]}")
                 return None
 
             data = response.json()
+            print(f"[AI Client] Unit 4 response received, confidence: {data.get('confidence', 0)}")
             
             # Convert response
             doc_links = [
@@ -107,10 +110,12 @@ class AIOrchestrationClient:
             )
 
         except requests.Timeout:
-            print("[AI Client] Unit 4 request timed out")
+            print("[AI Client] Unit 4 request timed out after 60s")
             return None
         except Exception as e:
             print(f"[AI Client] Error calling Unit 4: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     def _fallback_response(self, query: str) -> AIResponse:
