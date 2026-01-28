@@ -1,4 +1,5 @@
 import time
+import re
 from typing import List, Optional
 
 from ...domain.aggregates import AIQuery
@@ -16,6 +17,16 @@ from ...infrastructure.ai_providers import IAIProvider
 from ...infrastructure.events import InMemoryEventPublisher
 from ..clients import IDocumentSearchClient, IConversationContextClient
 from ..dtos import ProcessQueryRequest, ProcessQueryResponse, DocumentationLinkResponse
+
+# Patterns that indicate a follow-up message
+FOLLOWUP_PATTERNS = [
+    r'\b(tried|already|still|not working|doesn\'t work|didn\'t work|same issue|same error)\b',
+    r'\b(but|however|though|yet)\b.*\b(not|still|same)\b',
+    r'\b(help|stuck|confused|lost)\b',
+    r'^(huh|what|why|how come|eh|leh|lor|sia)\b',
+    r'\b(your method|your solution|your suggestion|the steps|those steps)\b',
+    r'^(no|nope|nah|cannot|can\'t)\b',
+]
 
 
 class ProcessAIQueryService:
@@ -68,13 +79,32 @@ class ProcessAIQueryService:
         if intent.is_off_topic():
             return self._handle_off_topic(ai_query, start_time)
 
+        # Check if this is a follow-up message and enhance query if needed
+        search_query = request.query
+        is_followup = self._is_followup_message(request.query)
+        
+        if is_followup and context_messages:
+            print(f"[Process Service] Detected follow-up message: {request.query[:50]}...")
+            search_query = self._build_enhanced_query(request.query, context_messages)
+            print(f"[Process Service] Enhanced search query: {search_query[:100]}...")
+
         # Search documents FIRST to get RAG context
         doc_start = time.time()
-        documents = self._document_client.search(request.query)
+        documents = self._document_client.search(search_query)
         
         # Get document content for RAG if client supports it
-        document_context = self._get_rag_context(request.query)
+        document_context = self._get_rag_context(search_query)
         doc_time_ms = int((time.time() - doc_start) * 1000)
+
+        # If follow-up and still no docs, try with original context topic
+        if is_followup and not document_context and context_messages:
+            print("[Process Service] No docs found for follow-up, trying with conversation topic...")
+            topic_query = self._extract_topic_from_context(context_messages)
+            if topic_query:
+                documents = self._document_client.search(topic_query)
+                document_context = self._get_rag_context(topic_query)
+                if document_context:
+                    print(f"[Process Service] Found docs using topic: {topic_query[:50]}...")
 
         # Build prompt WITH document context and call AI
         ai_start = time.time()
@@ -225,3 +255,81 @@ class ProcessAIQueryService:
             import traceback
             traceback.print_exc()
             return None
+
+    def _is_followup_message(self, query: str) -> bool:
+        """Detect if a message is a follow-up to previous conversation."""
+        query_lower = query.lower().strip()
+        
+        # Short messages are likely follow-ups
+        if len(query_lower.split()) <= 15:
+            for pattern in FOLLOWUP_PATTERNS:
+                if re.search(pattern, query_lower, re.IGNORECASE):
+                    return True
+        
+        # Check for lack of technical keywords (likely conversational)
+        technical_keywords = [
+            'error', 'invoice', 'order', 'shipment', 'netsuite', 'tms', 
+            'sync', 'integration', 'fulfillment', 'billing', 'payment'
+        ]
+        has_technical = any(kw in query_lower for kw in technical_keywords)
+        
+        # If short and no technical keywords, likely a follow-up
+        if len(query_lower.split()) <= 10 and not has_technical:
+            return True
+        
+        return False
+
+    def _build_enhanced_query(self, query: str, context_messages: list) -> str:
+        """Build an enhanced search query by combining follow-up with context."""
+        # Extract key terms from previous messages
+        context_terms = []
+        for msg in context_messages[-4:]:  # Last 4 messages
+            content = msg.content.lower()
+            # Extract potential keywords
+            words = re.findall(r'\b[a-z]{4,}\b', content)
+            context_terms.extend(words)
+        
+        # Find most common meaningful terms
+        from collections import Counter
+        term_counts = Counter(context_terms)
+        
+        # Filter out common words
+        stopwords = {'this', 'that', 'with', 'have', 'from', 'your', 'what', 
+                     'help', 'please', 'thank', 'thanks', 'could', 'would', 
+                     'should', 'about', 'there', 'their', 'which', 'where'}
+        meaningful_terms = [
+            term for term, count in term_counts.most_common(10) 
+            if term not in stopwords and len(term) > 3
+        ]
+        
+        # Combine with original query
+        if meaningful_terms:
+            enhanced = f"{query} {' '.join(meaningful_terms[:5])}"
+            return enhanced
+        
+        return query
+
+    def _extract_topic_from_context(self, context_messages: list) -> Optional[str]:
+        """Extract the main topic from conversation history for re-search."""
+        # Look for the first user message with technical content
+        for msg in context_messages:
+            if hasattr(msg, 'role') and str(msg.role.value).lower() == 'user':
+                content = msg.content
+                # Check if it has technical keywords
+                technical_keywords = [
+                    'error', 'invoice', 'order', 'shipment', 'netsuite', 'tms',
+                    'sync', 'integration', 'fulfillment', 'billing', 'payment',
+                    'issue', 'problem', 'fail', 'unable'
+                ]
+                if any(kw in content.lower() for kw in technical_keywords):
+                    return content
+        
+        # Fallback: combine all user messages
+        user_messages = [
+            msg.content for msg in context_messages 
+            if hasattr(msg, 'role') and str(msg.role.value).lower() == 'user'
+        ]
+        if user_messages:
+            return ' '.join(user_messages[:2])  # First 2 user messages
+        
+        return None
