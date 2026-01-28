@@ -1,4 +1,4 @@
-"""Amazon Bedrock AI Provider using Amazon Nova Lite"""
+"""Amazon Bedrock AI Provider - Claude preferred, Nova fallback"""
 import json
 from typing import Optional
 import boto3
@@ -9,13 +9,18 @@ from ...domain.value_objects import Prompt, AIResponse
 
 
 class BedrockAIProvider(IAIProvider):
-    """AI provider using Amazon Bedrock with Amazon Nova Lite in ap-southeast-1."""
+    """AI provider using Amazon Bedrock - tries Claude first, falls back to Nova."""
 
-    # Amazon Nova models via APAC inference profiles
-    MODELS = [
-        "apac.amazon.nova-lite-v1:0",   # APAC Nova Lite - fast and efficient
-        "apac.amazon.nova-micro-v1:0",  # APAC Nova Micro - smallest/fastest
-        "apac.amazon.nova-pro-v1:0",    # APAC Nova Pro - most capable
+    # Models to try in order (APAC inference profiles for Singapore region)
+    CLAUDE_MODELS = [
+        "apac.anthropic.claude-3-5-sonnet-20241022-v2:0",  # Claude 3.5 Sonnet v2 (best)
+        "apac.anthropic.claude-3-5-sonnet-20240620-v1:0",  # Claude 3.5 Sonnet
+        "apac.anthropic.claude-3-haiku-20240307-v1:0",     # Claude 3 Haiku (fastest)
+    ]
+    
+    NOVA_MODELS = [
+        "apac.amazon.nova-lite-v1:0",   # APAC Nova Lite - fallback
+        "apac.amazon.nova-micro-v1:0",  # APAC Nova Micro
     ]
     
     def __init__(self, region: str = "ap-southeast-1"):
@@ -23,6 +28,7 @@ class BedrockAIProvider(IAIProvider):
         self._client = None
         self._available = False
         self._model_id = None
+        self._model_type = None  # "claude" or "nova"
         self._initialize()
 
     def _initialize(self):
@@ -33,19 +39,34 @@ class BedrockAIProvider(IAIProvider):
                 region_name=self._region
             )
             
-            # Try each model until one works
-            for model_id in self.MODELS:
+            # Try Claude models first
+            for model_id in self.CLAUDE_MODELS:
                 try:
-                    print(f"[Bedrock AI] Trying model: {model_id}")
-                    self._test_model(model_id)
+                    print(f"[Bedrock AI] Trying Claude: {model_id}")
+                    self._test_claude_model(model_id)
                     self._model_id = model_id
+                    self._model_type = "claude"
                     self._available = True
-                    print(f"[Bedrock AI] ✓ Connected using: {model_id}")
+                    print(f"[Bedrock AI] ✓ Connected using Claude: {model_id}")
                     return
                 except ClientError as e:
                     error_code = e.response.get('Error', {}).get('Code', '')
-                    error_msg = e.response.get('Error', {}).get('Message', '')
-                    print(f"[Bedrock AI] ✗ {model_id}: {error_code} - {error_msg}")
+                    print(f"[Bedrock AI] ✗ {model_id}: {error_code}")
+                    continue
+            
+            # Fall back to Nova models
+            for model_id in self.NOVA_MODELS:
+                try:
+                    print(f"[Bedrock AI] Trying Nova: {model_id}")
+                    self._test_nova_model(model_id)
+                    self._model_id = model_id
+                    self._model_type = "nova"
+                    self._available = True
+                    print(f"[Bedrock AI] ✓ Connected using Nova: {model_id}")
+                    return
+                except ClientError as e:
+                    error_code = e.response.get('Error', {}).get('Code', '')
+                    print(f"[Bedrock AI] ✗ {model_id}: {error_code}")
                     continue
             
             print("[Bedrock AI] No working model found")
@@ -58,20 +79,13 @@ class BedrockAIProvider(IAIProvider):
             print(f"[Bedrock AI] Error initializing: {e}")
             self._available = False
 
-    def _test_model(self, model_id: str):
-        """Test if a model works using Amazon Nova format."""
-        # Amazon Nova uses the Converse API format
+    def _test_claude_model(self, model_id: str):
+        """Test if a Claude model works."""
         body = {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [{"text": "Hi"}]
-                }
-            ],
-            "inferenceConfig": {
-                "maxTokens": 10,
-                "temperature": 0.1
-            }
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 10,
+            "temperature": 0.1,
+            "messages": [{"role": "user", "content": "Hi"}]
         }
         
         self._client.invoke_model(
@@ -81,15 +95,50 @@ class BedrockAIProvider(IAIProvider):
             accept="application/json"
         )
 
-    def _invoke_model(self, prompt_text: str, system_prompt: str = "", max_tokens: int = 1000, temperature: float = 0.3) -> dict:
-        """Invoke the Amazon Nova model."""
-        # Amazon Nova uses the Converse API format
+    def _test_nova_model(self, model_id: str):
+        """Test if a Nova model works."""
         body = {
             "messages": [
-                {
-                    "role": "user",
-                    "content": [{"text": prompt_text}]
-                }
+                {"role": "user", "content": [{"text": "Hi"}]}
+            ],
+            "inferenceConfig": {"maxTokens": 10, "temperature": 0.1}
+        }
+        
+        self._client.invoke_model(
+            modelId=model_id,
+            body=json.dumps(body),
+            contentType="application/json",
+            accept="application/json"
+        )
+
+    def _invoke_claude(self, prompt_text: str, system_prompt: str = "", max_tokens: int = 1000, temperature: float = 0.3) -> dict:
+        """Invoke Claude model."""
+        messages = [{"role": "user", "content": prompt_text}]
+        
+        body = {
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "messages": messages
+        }
+        
+        if system_prompt:
+            body["system"] = system_prompt
+
+        response = self._client.invoke_model(
+            modelId=self._model_id,
+            body=json.dumps(body),
+            contentType="application/json",
+            accept="application/json"
+        )
+
+        return json.loads(response['body'].read())
+
+    def _invoke_nova(self, prompt_text: str, system_prompt: str = "", max_tokens: int = 1000, temperature: float = 0.3) -> dict:
+        """Invoke Nova model."""
+        body = {
+            "messages": [
+                {"role": "user", "content": [{"text": prompt_text}]}
             ],
             "inferenceConfig": {
                 "maxTokens": max_tokens,
@@ -97,7 +146,6 @@ class BedrockAIProvider(IAIProvider):
             }
         }
         
-        # Add system prompt if provided
         if system_prompt:
             body["system"] = [{"text": system_prompt}]
 
@@ -111,32 +159,39 @@ class BedrockAIProvider(IAIProvider):
         return json.loads(response['body'].read())
 
     def generate_response(self, prompt: Prompt) -> AIResponse:
-        """Generate a response using Amazon Bedrock Nova."""
+        """Generate a response using Amazon Bedrock (Claude or Nova)."""
         if not self._available:
             return self._fallback_response(prompt)
 
         try:
-            # Build the full prompt
-            full_prompt = self._build_nova_prompt(prompt)
+            # Build the prompt
+            user_prompt = self._build_user_prompt(prompt)
             
-            # Call Bedrock
-            response = self._invoke_model(
-                full_prompt,
-                system_prompt=prompt.system_prompt,
-                max_tokens=prompt.max_tokens,
-                temperature=prompt.temperature
-            )
-
-            # Extract content from Nova response format
-            # Nova returns: {"output": {"message": {"content": [{"text": "..."}]}}, "usage": {...}}
-            output = response.get("output", {})
-            message = output.get("message", {})
-            content_list = message.get("content", [])
-            content = content_list[0].get("text", "") if content_list else ""
-            
-            # Get token usage
-            usage = response.get("usage", {})
-            tokens_used = usage.get("outputTokens", 0)
+            # Call appropriate model
+            if self._model_type == "claude":
+                response = self._invoke_claude(
+                    user_prompt,
+                    system_prompt=prompt.system_prompt,
+                    max_tokens=prompt.max_tokens,
+                    temperature=prompt.temperature
+                )
+                # Claude response format
+                content = response.get("content", [{}])[0].get("text", "")
+                tokens_used = response.get("usage", {}).get("output_tokens", 0)
+            else:
+                response = self._invoke_nova(
+                    user_prompt,
+                    system_prompt=prompt.system_prompt,
+                    max_tokens=prompt.max_tokens,
+                    temperature=prompt.temperature
+                )
+                # Nova response format
+                output = response.get("output", {})
+                message = output.get("message", {})
+                content_list = message.get("content", [])
+                content = content_list[0].get("text", "") if content_list else ""
+                usage = response.get("usage", {})
+                tokens_used = usage.get("outputTokens", 0)
 
             return AIResponse.create(
                 content=content.strip(),
@@ -151,26 +206,19 @@ class BedrockAIProvider(IAIProvider):
             print(f"[Bedrock AI] Unexpected error: {e}")
             return self._fallback_response(prompt)
 
-    def _build_nova_prompt(self, prompt: Prompt) -> str:
-        """Build a prompt optimized for Amazon Nova."""
+    def _build_user_prompt(self, prompt: Prompt) -> str:
+        """Build user prompt with context."""
         parts = []
         
         # Conversation context if available
         if prompt.context:
-            parts.append("Previous conversation context:")
+            parts.append("Previous conversation:")
             for ctx in prompt.context:
                 parts.append(ctx)
             parts.append("")
         
         # User query
-        parts.append(f"User question: {prompt.user_prompt}")
-        
-        # Instructions for response format
-        parts.append("""
-Please provide a helpful, accurate response based on the context provided. 
-If you reference documentation, mention it naturally in your response.
-Be concise but thorough. Use bullet points for steps or lists.
-If you're not sure about something, say so and suggest escalating to human support.""")
+        parts.append(prompt.user_prompt)
         
         return "\n".join(parts)
 
