@@ -6,7 +6,7 @@ from ..entities import ContextMessage
 class PromptEngineeringService:
     """Builds optimized prompts for AI provider with RAG support."""
 
-    SYSTEM_PROMPT_NO_DOCS = """You are a helpful documentation assistant for NetSuite and TMS (Transportation Management System).
+    SYSTEM_PROMPT_NO_DOCS = """You are a helpful documentation assistant.
 
 IMPORTANT: No relevant documentation was found for this query.
 
@@ -15,7 +15,7 @@ Your response MUST be:
 
 Do not make up information. Do not provide generic advice. Simply acknowledge that no documentation was found and recommend escalation."""
 
-    SYSTEM_PROMPT_WITH_DOCS = """You are a helpful documentation assistant for NetSuite and TMS (Transportation Management System).
+    SYSTEM_PROMPT_WITH_DOCS = """You are a helpful documentation assistant.
 
 You have been provided with RELEVANT DOCUMENTATION below. Your job is to:
 
@@ -53,7 +53,7 @@ Be concise but thorough. Use bullet points for steps."""
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             context=context,
-            temperature=0.2 if has_docs else 0.1,  # Lower temp for more consistent responses
+            temperature=0.2 if has_docs else 0.1,
             max_tokens=1000,
         )
 
@@ -108,5 +108,5 @@ Be concise but thorough. Use bullet points for steps."""
         """Format context messages for prompt."""
         return [
             f"{msg.role.value}: {msg.content}"
-            for msg in messages[-5:]  # Last 5 messages
+            for msg in messages[-5:]
         ]
