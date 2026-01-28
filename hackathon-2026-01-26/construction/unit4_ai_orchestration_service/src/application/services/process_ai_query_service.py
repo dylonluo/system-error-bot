@@ -171,6 +171,7 @@ class ProcessAIQueryService:
                     url=link["url"],
                     description=link["description"],
                     category=link["category"],
+                    relevance=link.get("relevance", 0.0),  # Include actual relevance score
                 )
                 for link in response_data["documentation_links"]
             ],

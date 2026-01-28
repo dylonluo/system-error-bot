@@ -98,7 +98,7 @@ class AIOrchestrationClient:
                     description=link.get("description", ""),
                     source="s3",
                     format="pdf",
-                    relevance=0.8
+                    relevance=link.get("relevance", 0.5)  # Use actual relevance from Unit 4
                 )
                 for link in data.get("documentation_links", [])
             ]
