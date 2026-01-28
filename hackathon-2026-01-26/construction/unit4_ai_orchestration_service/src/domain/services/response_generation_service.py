@@ -40,6 +40,7 @@ class ResponseGenerationService:
                     "url": doc.url,
                     "description": doc.description,
                     "category": doc.category,
+                    "relevance": doc.relevance,  # Include actual relevance score
                 }
                 for doc in limited_docs
             ],

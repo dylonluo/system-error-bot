@@ -10,6 +10,7 @@ class DocumentationLinkResponse(BaseModel):
     url: str
     description: str
     category: str
+    relevance: float = 0.0  # Similarity score from semantic search
 
 
 class ProcessQueryResponse(BaseModel):
