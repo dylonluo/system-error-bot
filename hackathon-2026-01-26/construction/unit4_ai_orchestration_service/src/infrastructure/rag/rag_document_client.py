@@ -401,10 +401,15 @@ class RAGDocumentClient(IDocumentSearchClient):
 
     def get_context_for_query(self, query: str, max_tokens: int = 2000) -> str:
         """Get combined document context for a query, suitable for prompt injection."""
+        print(f"[RAG Client] Getting context for query: {query[:50]}...")
+        
         results = self.search_with_context(query, top_k=3)
         
         if not results:
+            print("[RAG Client] No search results found for context")
             return ""
+        
+        print(f"[RAG Client] Found {len(results)} documents for context")
         
         context_parts = []
         total_chars = 0
@@ -422,8 +427,11 @@ class RAGDocumentClient(IDocumentSearchClient):
             
             context_parts.append(doc_context)
             total_chars += len(doc_context)
+            print(f"[RAG Client] Added context from: {result.document_link.title} ({len(result.combined_context)} chars)")
         
-        return "\n\n---\n\n".join(context_parts)
+        final_context = "\n\n---\n\n".join(context_parts)
+        print(f"[RAG Client] Total context: {len(final_context)} chars")
+        return final_context
 
     def _fallback_search(self, query: str) -> List[DocumentLink]:
         """Fallback when S3 is not available."""
