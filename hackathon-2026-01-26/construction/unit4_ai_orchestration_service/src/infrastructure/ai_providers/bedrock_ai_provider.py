@@ -210,14 +210,15 @@ class BedrockAIProvider(IAIProvider):
         """Build user prompt with context."""
         parts = []
         
-        # Conversation context if available
+        # Conversation context FIRST (important for continuity)
         if prompt.context:
-            parts.append("Previous conversation:")
+            parts.append("=== CONVERSATION HISTORY ===")
             for ctx in prompt.context:
                 parts.append(ctx)
+            parts.append("=== END CONVERSATION HISTORY ===")
             parts.append("")
         
-        # User query
+        # User query (includes document context from PromptEngineeringService)
         parts.append(prompt.user_prompt)
         
         return "\n".join(parts)

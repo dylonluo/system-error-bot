@@ -24,6 +24,11 @@ class PromptEngineeringService:
         "2. If the documentation is insufficient, answer what you can and recommend escalation for the rest.\n"
         "3. Quote specific technical details or error codes exactly as they appear.\n"
         "4. ALWAYS cite the document title/source name for every fact provided.\n\n"
+        "RESPONSE FORMAT FOR ERRORS:\n"
+        "When answering error-related questions, ALWAYS structure your response with:\n"
+        "- **Root Cause**: Explain WHY this error occurs\n"
+        "- **Resolution Steps**: Numbered steps to fix the issue\n"
+        "- **Next Steps**: What to do if the issue persists or related preventive measures\n\n"
         "RESPONSE STRUCTURE:\n"
         "- DIRECT ANSWER: Provide a 1-2 sentence summary first.\n"
         "- INSTRUCTIONS: Use numbered lists for steps.\n"
@@ -62,9 +67,12 @@ class PromptEngineeringService:
         # Inject Intent-Specific Persona
         if intent.intent_type == IntentType.ERROR_TROUBLESHOOTING:
             base += (
-                "\n\nCONTEXT: ERROR TROUBLESHOOTING\n"
-                "- Prioritize root cause analysis.\n"
-                "- Check for 'Known Issues' or 'Workarounds' in the docs."
+                "\n\nERROR TROUBLESHOOTING MODE:\n"
+                "You MUST structure your response with these sections:\n"
+                "1. **Root Cause**: Clearly explain what causes this error\n"
+                "2. **Resolution Steps**: Provide numbered step-by-step instructions to fix it\n"
+                "3. **Next Steps**: Suggest what to do if the issue persists, or preventive measures\n\n"
+                "Be specific and actionable. Reference the documentation when available."
             )
         elif intent.intent_type == IntentType.TASK_GUIDANCE:
             base += (
