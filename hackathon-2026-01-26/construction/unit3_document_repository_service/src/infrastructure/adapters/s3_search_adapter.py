@@ -1,5 +1,6 @@
 """Real S3 search adapter connecting to AWS S3 bucket."""
 
+import io
 import re
 from datetime import datetime, timezone
 from typing import List, Optional, Dict
@@ -20,6 +21,14 @@ from ...domain.value_objects.document_title import DocumentTitle
 from ...domain.value_objects.document_type import DocType, DocumentType
 from ...domain.value_objects.document_url import DocumentUrl
 
+# PDF extraction
+try:
+    from pypdf import PdfReader
+    PDF_AVAILABLE = True
+except ImportError:
+    PDF_AVAILABLE = False
+    print("[S3 Adapter] pypdf not installed, PDF content extraction disabled")
+
 
 class S3SearchAdapter(IDocumentSearchProvider):
     """Real S3 adapter for document search from AWS S3 bucket."""
@@ -35,6 +44,8 @@ class S3SearchAdapter(IDocumentSearchProvider):
         self._region = region
         self._s3_client = None
         self._documents: Dict[str, Document] = {}
+        self._document_keys: Dict[str, str] = {}  # Map document_id to S3 key
+        self._content_cache: Dict[str, str] = {}  # Cache extracted content
         self._available = False
         self._initialize()
 
@@ -65,7 +76,9 @@ class S3SearchAdapter(IDocumentSearchProvider):
                     if key.endswith('.pdf'):
                         doc = self._create_document_from_s3_object(obj)
                         if doc:
-                            self._documents[str(doc.document_id)] = doc
+                            doc_id = str(doc.document_id)
+                            self._documents[doc_id] = doc
+                            self._document_keys[doc_id] = key  # Store S3 key
 
         except ClientError as e:
             print(f"[S3 Adapter] Error listing objects: {e}")
@@ -280,3 +293,79 @@ class S3SearchAdapter(IDocumentSearchProvider):
     def get_document_count(self) -> int:
         """Get total number of documents."""
         return len(self._documents)
+
+    def get_document_content(self, document_id: str, max_chars: int = 8000) -> Optional[str]:
+        """Extract text content from a PDF document.
+        
+        Args:
+            document_id: The document ID
+            max_chars: Maximum characters to extract (default 8000 for context window)
+            
+        Returns:
+            Extracted text content or None if extraction fails
+        """
+        if not PDF_AVAILABLE:
+            print("[S3 Adapter] PDF extraction not available")
+            return None
+            
+        # Check cache first
+        if document_id in self._content_cache:
+            return self._content_cache[document_id][:max_chars]
+        
+        # Get S3 key
+        s3_key = self._document_keys.get(document_id)
+        if not s3_key:
+            print(f"[S3 Adapter] No S3 key found for document {document_id}")
+            return None
+        
+        try:
+            # Download PDF from S3
+            print(f"[S3 Adapter] Downloading PDF: {s3_key}")
+            response = self._s3_client.get_object(Bucket=self._bucket_name, Key=s3_key)
+            pdf_bytes = response['Body'].read()
+            
+            # Extract text using pypdf
+            pdf_file = io.BytesIO(pdf_bytes)
+            reader = PdfReader(pdf_file)
+            
+            text_parts = []
+            for page_num, page in enumerate(reader.pages):
+                try:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text_parts.append(f"[Page {page_num + 1}]\n{page_text}")
+                except Exception as e:
+                    print(f"[S3 Adapter] Error extracting page {page_num}: {e}")
+                    continue
+            
+            content = "\n\n".join(text_parts)
+            
+            # Cache the content
+            self._content_cache[document_id] = content
+            print(f"[S3 Adapter] Extracted {len(content)} chars from {s3_key}")
+            
+            return content[:max_chars]
+            
+        except ClientError as e:
+            print(f"[S3 Adapter] Error downloading PDF: {e}")
+            return None
+        except Exception as e:
+            print(f"[S3 Adapter] Error extracting PDF content: {e}")
+            return None
+
+    def get_documents_content(self, document_ids: List[str], max_chars_per_doc: int = 4000) -> Dict[str, str]:
+        """Extract content from multiple documents.
+        
+        Args:
+            document_ids: List of document IDs
+            max_chars_per_doc: Max chars per document
+            
+        Returns:
+            Dict mapping document_id to content
+        """
+        results = {}
+        for doc_id in document_ids[:3]:  # Limit to top 3 docs for context
+            content = self.get_document_content(doc_id, max_chars_per_doc)
+            if content:
+                results[doc_id] = content
+        return results
