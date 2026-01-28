@@ -95,7 +95,8 @@ class SubmitQueryApplicationService:
             query=request.query_text,
             context=self._build_context(conversation),
             user_id=user.user_id,
-            conversation_id=conversation.conversation_id  # Pass conversation ID for follow-up detection
+            conversation_id=conversation.conversation_id,  # Pass conversation ID for follow-up detection
+            screenshot_url=screenshot.storage_url if screenshot else None  # Pass screenshot for vision analysis
         )
 
         # 9. Convert AI documentation links to domain objects

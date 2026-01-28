@@ -53,7 +53,14 @@ class AIOrchestrationClient:
             print(f"[AI Client] Unit 4 not available: {e}, will use fallback")
             self._unit4_available = False
 
-    def process_query(self, query: str, context: str, user_id: UUID, conversation_id: UUID = None) -> AIResponse:
+    def process_query(
+        self, 
+        query: str, 
+        context: str, 
+        user_id: UUID, 
+        conversation_id: UUID = None,
+        screenshot_url: Optional[str] = None
+    ) -> AIResponse:
         """Process user query using Unit 4 or fallback.
         
         Args:
@@ -61,17 +68,25 @@ class AIOrchestrationClient:
             context: Previous conversation context (messages)
             user_id: The user's ID
             conversation_id: The conversation ID (important for follow-ups!)
+            screenshot_url: URL of attached screenshot (if any)
         """
         # Try Unit 4 first
         if self._unit4_available:
-            result = self._call_unit4(query, str(user_id), context, conversation_id)
+            result = self._call_unit4(query, str(user_id), context, conversation_id, screenshot_url)
             if result:
                 return result
         
         # Fallback: Use Unit 3 for documents + generate simple response
-        return self._fallback_response(query)
+        return self._fallback_response(query, screenshot_url)
 
-    def _call_unit4(self, query: str, user_id: str, context: str, conversation_id: UUID = None) -> Optional[AIResponse]:
+    def _call_unit4(
+        self, 
+        query: str, 
+        user_id: str, 
+        context: str, 
+        conversation_id: UUID = None,
+        screenshot_url: Optional[str] = None
+    ) -> Optional[AIResponse]:
         """Call Unit 4 AI Orchestration Service."""
         try:
             import uuid
@@ -92,6 +107,11 @@ class AIOrchestrationClient:
             if context and context.strip():
                 request_data["context"] = context
                 print(f"[AI Client] Including context: {len(context)} chars")
+            
+            # Include screenshot URL if provided
+            if screenshot_url:
+                request_data["screenshot_url"] = screenshot_url
+                print(f"[AI Client] Including screenshot: {screenshot_url}")
             
             response = requests.post(
                 f"{self._unit4_url}/api/v1/ai/process-query",
@@ -134,9 +154,28 @@ class AIOrchestrationClient:
             traceback.print_exc()
             return None
 
-    def _fallback_response(self, query: str) -> AIResponse:
+    def _fallback_response(self, query: str, screenshot_url: Optional[str] = None) -> AIResponse:
         """Fallback response using Unit 3 documents."""
         query_lower = query.lower()
+        
+        # If screenshot is attached, acknowledge it
+        if screenshot_url:
+            return AIResponse(
+                content=(
+                    "I can see you've attached a screenshot. Thank you for providing this visual context.\n\n"
+                    "However, I'm currently running in fallback mode without full image analysis capabilities. "
+                    "To help you better, please describe:\n\n"
+                    "1. **What does the screenshot show?** (e.g., error message, form, screen)\n"
+                    "2. **What were you trying to do?** (e.g., create invoice, sync order)\n"
+                    "3. **Any error codes or messages visible?**\n\n"
+                    "With this information, I can search our documentation for relevant solutions."
+                ),
+                documentation_links=[],
+                confidence=0.4
+            )
+        
+        # Search for documents using Unit 3
+        doc_results = self._doc_client.search_documents(query, limit=5)
         
         # Search for documents using Unit 3
         doc_results = self._doc_client.search_documents(query, limit=5)

@@ -1,5 +1,7 @@
 """Amazon Bedrock AI Provider - Claude preferred, Nova fallback"""
 import json
+import base64
+import requests
 from typing import Optional
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
@@ -111,9 +113,38 @@ class BedrockAIProvider(IAIProvider):
             accept="application/json"
         )
 
-    def _invoke_claude(self, prompt_text: str, system_prompt: str = "", max_tokens: int = 1000, temperature: float = 0.3) -> dict:
-        """Invoke Claude model."""
-        messages = [{"role": "user", "content": prompt_text}]
+    def _invoke_claude(
+        self, 
+        prompt_text: str, 
+        system_prompt: str = "", 
+        max_tokens: int = 1000, 
+        temperature: float = 0.3,
+        image_base64: Optional[str] = None,
+        image_media_type: Optional[str] = None
+    ) -> dict:
+        """Invoke Claude model with optional image for vision."""
+        # Build message content
+        content = []
+        
+        # Add image first if provided (Claude expects image before text)
+        if image_base64 and image_media_type:
+            print(f"[Bedrock AI] Including image in request ({image_media_type})")
+            content.append({
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": image_media_type,
+                    "data": image_base64
+                }
+            })
+        
+        # Add text content
+        content.append({
+            "type": "text",
+            "text": prompt_text
+        })
+        
+        messages = [{"role": "user", "content": content}]
         
         body = {
             "anthropic_version": "bedrock-2023-05-31",
@@ -167,18 +198,30 @@ class BedrockAIProvider(IAIProvider):
             # Build the prompt
             user_prompt = self._build_user_prompt(prompt)
             
+            # Get image data if available
+            image_base64 = None
+            image_media_type = None
+            
+            if prompt.has_image():
+                image_base64, image_media_type = self._get_image_data(prompt)
+            
             # Call appropriate model
             if self._model_type == "claude":
                 response = self._invoke_claude(
                     user_prompt,
                     system_prompt=prompt.system_prompt,
                     max_tokens=prompt.max_tokens,
-                    temperature=prompt.temperature
+                    temperature=prompt.temperature,
+                    image_base64=image_base64,
+                    image_media_type=image_media_type
                 )
                 # Claude response format
                 content = response.get("content", [{}])[0].get("text", "")
                 tokens_used = response.get("usage", {}).get("output_tokens", 0)
             else:
+                # Nova doesn't support vision in the same way
+                if image_base64:
+                    print("[Bedrock AI] Warning: Nova model doesn't support vision, ignoring image")
                 response = self._invoke_nova(
                     user_prompt,
                     system_prompt=prompt.system_prompt,
@@ -204,7 +247,45 @@ class BedrockAIProvider(IAIProvider):
             return self._fallback_response(prompt)
         except Exception as e:
             print(f"[Bedrock AI] Unexpected error: {e}")
+            import traceback
+            traceback.print_exc()
             return self._fallback_response(prompt)
+
+    def _get_image_data(self, prompt: Prompt) -> tuple[Optional[str], Optional[str]]:
+        """Get image data from prompt (base64 or fetch from URL)."""
+        # If base64 already provided, use it
+        if prompt.image_base64:
+            media_type = prompt.image_media_type or "image/png"
+            return prompt.image_base64, media_type
+        
+        # If URL provided, fetch and encode
+        if prompt.image_url:
+            try:
+                print(f"[Bedrock AI] Fetching image from: {prompt.image_url}")
+                response = requests.get(prompt.image_url, timeout=10)
+                if response.status_code == 200:
+                    image_data = base64.b64encode(response.content).decode('utf-8')
+                    # Detect media type from content-type header or URL
+                    content_type = response.headers.get('content-type', '')
+                    if 'png' in content_type or prompt.image_url.lower().endswith('.png'):
+                        media_type = 'image/png'
+                    elif 'jpeg' in content_type or 'jpg' in content_type or prompt.image_url.lower().endswith(('.jpg', '.jpeg')):
+                        media_type = 'image/jpeg'
+                    elif 'gif' in content_type or prompt.image_url.lower().endswith('.gif'):
+                        media_type = 'image/gif'
+                    elif 'webp' in content_type or prompt.image_url.lower().endswith('.webp'):
+                        media_type = 'image/webp'
+                    else:
+                        media_type = 'image/png'  # Default
+                    
+                    print(f"[Bedrock AI] Image fetched successfully ({media_type}, {len(image_data)} chars)")
+                    return image_data, media_type
+                else:
+                    print(f"[Bedrock AI] Failed to fetch image: HTTP {response.status_code}")
+            except Exception as e:
+                print(f"[Bedrock AI] Error fetching image: {e}")
+        
+        return None, None
 
     def _build_user_prompt(self, prompt: Prompt) -> str:
         """Build user prompt with context."""
@@ -219,6 +300,10 @@ class BedrockAIProvider(IAIProvider):
         
         # User query
         parts.append(prompt.user_prompt)
+        
+        # Add note about image if present
+        if prompt.has_image():
+            parts.append("\n[Note: A screenshot has been attached. Please analyze it along with the question above.]")
         
         return "\n".join(parts)
 

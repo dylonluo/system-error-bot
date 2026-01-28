@@ -115,7 +115,8 @@ class ProcessAIQueryService:
         # Build prompt WITH document context and call AI
         ai_start = time.time()
         prompt = self._prompt_service.build_prompt(
-            request.query, intent, context_messages, document_context
+            request.query, intent, context_messages, document_context,
+            image_url=request.screenshot_url  # Pass screenshot for vision analysis
         )
         ai_response = self._ai_provider.generate_response(prompt)
         ai_query.set_ai_response(ai_response)

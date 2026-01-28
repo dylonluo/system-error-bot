@@ -50,11 +50,12 @@ class PromptEngineeringService:
         intent: Intent,
         context_messages: List[ContextMessage],
         document_context: Optional[str] = None,
+        image_url: Optional[str] = None,
     ) -> Prompt:
         """Build a complete prompt with intent-specific logic and context."""
         has_docs = bool(document_context and document_context.strip())
         
-        system_prompt = self._build_system_prompt(intent, has_docs)
+        system_prompt = self._build_system_prompt(intent, has_docs, has_image=bool(image_url))
         user_prompt = self._build_user_prompt(query_text, intent, document_context)
         context = self._format_context(context_messages)
 
@@ -65,27 +66,40 @@ class PromptEngineeringService:
             # Keeping temperature low for factual accuracy
             temperature=0.2 if has_docs else 0.0,
             max_tokens=1200,
+            image_url=image_url,
         )
 
-    def _build_system_prompt(self, intent: Intent, has_docs: bool = False) -> str:
+    def _build_system_prompt(self, intent: Intent, has_docs: bool = False, has_image: bool = False) -> str:
         if not has_docs:
-            return self.SYSTEM_PROMPT_NO_DOCS
+            base = self.SYSTEM_PROMPT_NO_DOCS
+        else:
+            base = self.SYSTEM_PROMPT_WITH_DOCS
         
-        base = self.SYSTEM_PROMPT_WITH_DOCS
+        # Add image analysis instructions if screenshot attached
+        if has_image:
+            base += (
+                "\n\nIMAGE ANALYSIS:\n"
+                "A screenshot has been attached. Please:\n"
+                "1. Carefully analyze the image for error messages, UI elements, or relevant information.\n"
+                "2. Extract any error codes, field names, or status indicators visible.\n"
+                "3. Use the visual context to provide more specific guidance.\n"
+                "4. If the image shows an error, identify the error type and suggest solutions from the documentation."
+            )
         
-        # Inject Intent-Specific Persona
-        if intent.intent_type == IntentType.ERROR_TROUBLESHOOTING:
-            base += (
-                "\n\nCONTEXT: ERROR TROUBLESHOOTING\n"
-                "- Prioritize root cause analysis.\n"
-                "- Check for 'Known Issues' or 'Workarounds' in the docs."
-            )
-        elif intent.intent_type == IntentType.TASK_GUIDANCE:
-            base += (
-                "\n\nCONTEXT: TASK GUIDANCE\n"
-                "- Focus on prerequisites and expected outcomes.\n"
-                "- Ensure steps are sequential and logically ordered."
-            )
+        if has_docs:
+            # Inject Intent-Specific Persona
+            if intent.intent_type == IntentType.ERROR_TROUBLESHOOTING:
+                base += (
+                    "\n\nCONTEXT: ERROR TROUBLESHOOTING\n"
+                    "- Prioritize root cause analysis.\n"
+                    "- Check for 'Known Issues' or 'Workarounds' in the docs."
+                )
+            elif intent.intent_type == IntentType.TASK_GUIDANCE:
+                base += (
+                    "\n\nCONTEXT: TASK GUIDANCE\n"
+                    "- Focus on prerequisites and expected outcomes.\n"
+                    "- Ensure steps are sequential and logically ordered."
+                )
         
         return base
 
