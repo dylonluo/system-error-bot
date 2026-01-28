@@ -65,10 +65,16 @@ class ProcessAIQueryService:
             query_text=request.query,
         )
 
-        # Load conversation context
-        context_messages = self._context_client.get_conversation_history(
-            request.conversation_id, limit=5
-        )
+        # Load conversation context - prefer context from request, fallback to client
+        context_messages = []
+        if request.context and request.context.strip():
+            # Parse context string into messages
+            context_messages = self._parse_context_string(request.context)
+            print(f"[Process Service] Using context from request: {len(context_messages)} messages")
+        else:
+            context_messages = self._context_client.get_conversation_history(
+                request.conversation_id, limit=5
+            )
         ai_query.add_context(context_messages)
 
         # Detect intent
@@ -333,3 +339,57 @@ class ProcessAIQueryService:
             return ' '.join(user_messages[:2])  # First 2 user messages
         
         return None
+
+    def _parse_context_string(self, context: str) -> list:
+        """Parse context string into ContextMessage objects."""
+        from ...domain.entities import ContextMessage
+        from ...domain.entities.context_message import MessageRole
+        
+        messages = []
+        
+        # Try to parse structured context (USER: ... ASSISTANT: ...)
+        lines = context.split('\n')
+        current_role = None
+        current_content = []
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            if line.startswith('USER:'):
+                # Save previous message
+                if current_role and current_content:
+                    messages.append(ContextMessage.create(
+                        role=current_role,
+                        content=' '.join(current_content)
+                    ))
+                current_role = MessageRole.USER
+                current_content = [line[5:].strip()]
+            elif line.startswith('ASSISTANT:'):
+                # Save previous message
+                if current_role and current_content:
+                    messages.append(ContextMessage.create(
+                        role=current_role,
+                        content=' '.join(current_content)
+                    ))
+                current_role = MessageRole.ASSISTANT
+                current_content = [line[10:].strip()]
+            elif current_role:
+                current_content.append(line)
+        
+        # Save last message
+        if current_role and current_content:
+            messages.append(ContextMessage.create(
+                role=current_role,
+                content=' '.join(current_content)
+            ))
+        
+        # If no structured format found, treat whole context as user message
+        if not messages and context.strip():
+            messages.append(ContextMessage.create(
+                role=MessageRole.USER,
+                content=context.strip()
+            ))
+        
+        return messages

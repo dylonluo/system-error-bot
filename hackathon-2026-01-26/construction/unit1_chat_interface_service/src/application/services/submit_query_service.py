@@ -94,7 +94,8 @@ class SubmitQueryApplicationService:
         ai_response = self._ai_client.process_query(
             query=request.query_text,
             context=self._build_context(conversation),
-            user_id=user.user_id
+            user_id=user.user_id,
+            conversation_id=conversation.conversation_id  # Pass conversation ID for follow-up detection
         )
 
         # 9. Convert AI documentation links to domain objects
