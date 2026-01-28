@@ -9,24 +9,24 @@ class IntentDetectionService:
     Now works with any documentation, not just NS/TMS specific.
     """
 
-    # Error-related patterns
+    # Error-related patterns - expanded
     ERROR_PATTERNS = [
         r"error", r"failed", r"exception", r"issue", r"problem", 
         r"not working", r"doesn't work", r"can't", r"cannot", r"unable",
-        r"NS_\w+", r"TMS-ERROR-\d+", r"ERR[-_]?\d+",
+        r"won't", r"doesn't", r"NS_\w+", r"TMS-ERROR-\d+", r"ERR[-_]?\d+",
     ]
     
-    # Task/How-to patterns
+    # Task/How-to patterns - expanded
     TASK_KEYWORDS = [
         "create", "update", "delete", "configure", "setup", "set up",
         "how to", "how do i", "how can i", "steps to", "guide",
         "process", "procedure", "instructions", "help me",
     ]
     
-    # Question patterns
+    # Question patterns - expanded
     QUESTION_KEYWORDS = [
         "what is", "what are", "why", "when", "where", "which",
-        "explain", "describe", "tell me", "show me",
+        "explain", "describe", "tell me", "show me", "what",
     ]
 
     def detect_intent(self, query_text: str) -> Intent:

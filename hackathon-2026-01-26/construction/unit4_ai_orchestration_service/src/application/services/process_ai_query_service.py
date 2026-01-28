@@ -64,17 +64,26 @@ class ProcessAIQueryService:
         intent = self._intent_service.detect_intent(request.query)
         ai_query.set_intent(intent)
 
-        # Handle off-topic queries
-        if intent.is_off_topic():
-            return self._handle_off_topic(ai_query, start_time)
-
-        # Search documents FIRST to get RAG context
+        # Search documents FIRST to get RAG context (before off-topic check)
         doc_start = time.time()
         documents = self._document_client.search(request.query)
-        
-        # Get document content for RAG if client supports it
         document_context = self._get_rag_context(request.query)
         doc_time_ms = int((time.time() - doc_start) * 1000)
+
+        # If we found relevant documents, override off-topic classification
+        if intent.is_off_topic() and document_context:
+            print(f"[Query Service] Found documents for 'off-topic' query, treating as general question")
+            from ...domain.value_objects import Intent, IntentType
+            intent = Intent(
+                intent_type=IntentType.GENERAL_QUESTION,
+                confidence=0.7,
+                entities={},
+            )
+            ai_query.set_intent(intent)
+
+        # Handle truly off-topic queries (no documents found)
+        if intent.is_off_topic():
+            return self._handle_off_topic(ai_query, start_time)
 
         # Build prompt WITH document context and call AI
         ai_start = time.time()
