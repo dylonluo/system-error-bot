@@ -278,7 +278,7 @@ function addMessageToUI(message) {
     const messageHtml = `
         <div class="message ${isUser ? 'user' : 'assistant'}">
             <div class="message-avatar">
-                ${isUser ? '<i class="fas fa-user"></i>' : '🏰'}
+                ${isUser ? '<i class="fas fa-user"></i>' : '<i class="fas fa-cube"></i>'}
             </div>
             <div class="message-content">
                 ${screenshotHtml}
