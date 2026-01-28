@@ -324,20 +324,21 @@ class RAGDocumentClient(IDocumentSearchClient):
         # Search content store for relevant chunks
         chunks = self._content_store.search(query, top_k=10)
         
-        # Group chunks by document and create links
-        doc_scores: Dict[str, float] = {}
+        # Group chunks by document and track best score per document
+        doc_best_score: Dict[str, float] = {}  # Track best (max) score per doc
         doc_chunks: Dict[str, List[DocumentChunk]] = {}
         
         for chunk in chunks:
             doc_id = chunk.document_id
-            if doc_id not in doc_scores:
-                doc_scores[doc_id] = 0
+            if doc_id not in doc_best_score:
+                doc_best_score[doc_id] = 0
                 doc_chunks[doc_id] = []
-            doc_scores[doc_id] += chunk.relevance_score
+            # Use max score (best matching chunk) rather than sum
+            doc_best_score[doc_id] = max(doc_best_score[doc_id], chunk.relevance_score)
             doc_chunks[doc_id].append(chunk)
         
-        # Sort by total score and create links
-        sorted_docs = sorted(doc_scores.items(), key=lambda x: x[1], reverse=True)
+        # Sort by best score and create links
+        sorted_docs = sorted(doc_best_score.items(), key=lambda x: x[1], reverse=True)
         
         links = []
         for doc_id, score in sorted_docs[:5]:  # Top 5 documents
@@ -349,14 +350,19 @@ class RAGDocumentClient(IDocumentSearchClient):
             if top_chunk:
                 description = top_chunk.content[:200] + "..." if len(top_chunk.content) > 200 else top_chunk.content
             
+            # Score is already 0-1 from semantic search (cosine similarity)
+            # For keyword search, it's normalized in _keyword_search
+            relevance = min(score, 1.0)
+            
             links.append(DocumentLink(
                 document_id=doc_id,
                 title=metadata.get('title', doc_id),
                 url=metadata.get('url', ''),
                 description=description,
                 category=metadata.get('category', 'General'),
-                relevance=min(score / 20.0, 1.0),
+                relevance=relevance,
             ))
+            print(f"[RAG Client] Document '{metadata.get('title', doc_id)[:40]}' relevance: {relevance:.2%}")
         
         return links
 
@@ -367,20 +373,31 @@ class RAGDocumentClient(IDocumentSearchClient):
         
         chunks = self._content_store.search(query, top_k=top_k * 2)
         
-        # Group by document
+        # Group by document and track best score
         doc_chunks: Dict[str, List[DocumentChunk]] = {}
+        doc_best_score: Dict[str, float] = {}
+        
         for chunk in chunks:
             doc_id = chunk.document_id
             if doc_id not in doc_chunks:
                 doc_chunks[doc_id] = []
+                doc_best_score[doc_id] = 0
             doc_chunks[doc_id].append(chunk)
+            doc_best_score[doc_id] = max(doc_best_score[doc_id], chunk.relevance_score)
+        
+        # Sort by best score
+        sorted_doc_ids = sorted(doc_best_score.keys(), key=lambda x: doc_best_score[x], reverse=True)
         
         results = []
-        for doc_id, chunks_list in list(doc_chunks.items())[:top_k]:
+        for doc_id in sorted_doc_ids[:top_k]:
+            chunks_list = doc_chunks[doc_id]
             metadata = self._document_metadata.get(doc_id, {})
             
             # Combine chunks into context
             combined = "\n\n".join(c.content for c in chunks_list[:3])
+            
+            # Use best score (already 0-1 from semantic search)
+            relevance = min(doc_best_score[doc_id], 1.0)
             
             link = DocumentLink(
                 document_id=doc_id,
@@ -388,7 +405,7 @@ class RAGDocumentClient(IDocumentSearchClient):
                 url=metadata.get('url', ''),
                 description=combined[:200] + "..." if len(combined) > 200 else combined,
                 category=metadata.get('category', 'General'),
-                relevance=chunks_list[0].relevance_score / 20.0 if chunks_list else 0,
+                relevance=relevance,
             )
             
             results.append(RAGSearchResult(
