@@ -2,38 +2,33 @@ from typing import List, Optional
 from ..value_objects import Prompt, Intent, IntentType
 from ..entities import ContextMessage
 
-
 class PromptEngineeringService:
     """Builds optimized prompts for AI provider with RAG support."""
 
-    SYSTEM_PROMPT_NO_DOCS = """You are a helpful documentation assistant.
+    # STRICT NO-DOCS GUARDRAIL
+    SYSTEM_PROMPT_NO_DOCS = (
+        "You are a helpful documentation assistant.\n\n"
+        "IMPORTANT: No relevant documentation was found for this query.\n\n"
+        "Your response MUST be:\n"
+        "\"I searched through our documentation but couldn't find specific information related to your question. "
+        "Please escalate this to the relevant support personnel for assistance.\"\n\n"
+        "Do not make up information. Do not provide generic advice."
+    )
 
-IMPORTANT: No relevant documentation was found for this query.
-
-Your response MUST be:
-"I searched through our documentation but couldn't find specific information related to your question. Please escalate this to the relevant support personnel for assistance."
-
-Do not make up information. Do not provide generic advice. Simply acknowledge that no documentation was found and recommend escalation."""
-
-    SYSTEM_PROMPT_WITH_DOCS = """You are a helpful documentation assistant.
-
-You have been provided with RELEVANT DOCUMENTATION below. Your job is to:
-
-1. READ and UNDERSTAND the documentation provided
-2. FIND the specific information that answers the user's question
-3. SUMMARIZE the relevant steps or information in your own words
-4. QUOTE specific details from the documentation when helpful
-5. ALWAYS mention which document(s) you're referencing
-
-RESPONSE FORMAT:
-- Start with a direct answer to the question
-- Provide step-by-step instructions if the documentation contains them
-- Summarize what the document explains
-- Reference the document title(s) you used
-
-If the documentation doesn't fully answer the question, say what you found and suggest escalation for the remaining parts.
-
-Be concise but thorough. Use bullet points for steps."""
+    # DETAILED RAG-ENABLED PROMPT
+    SYSTEM_PROMPT_WITH_DOCS = (
+        "You are a professional Technical Support Assistant. You have been provided with RELEVANT DOCUMENTATION sections "
+        "to answer the user's query.\n\n"
+        "GUIDELINES:\n"
+        "1. ONLY use the provided documentation to answer. Do not use outside knowledge.\n"
+        "2. If the documentation is insufficient, answer what you can and recommend escalation for the rest.\n"
+        "3. Quote specific technical details or error codes exactly as they appear.\n"
+        "4. ALWAYS cite the document title/source name for every fact provided.\n\n"
+        "RESPONSE STRUCTURE:\n"
+        "- DIRECT ANSWER: Provide a 1-2 sentence summary first.\n"
+        "- INSTRUCTIONS: Use numbered lists for steps.\n"
+        "- SOURCES: List the documents used at the end of your response."
+    )
 
     def build_prompt(
         self,
@@ -42,7 +37,7 @@ Be concise but thorough. Use bullet points for steps."""
         context_messages: List[ContextMessage],
         document_context: Optional[str] = None,
     ) -> Prompt:
-        """Build a complete prompt for the AI provider with optional RAG context."""
+        """Build a complete prompt with intent-specific logic and context."""
         has_docs = bool(document_context and document_context.strip())
         
         system_prompt = self._build_system_prompt(intent, has_docs)
@@ -53,21 +48,30 @@ Be concise but thorough. Use bullet points for steps."""
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             context=context,
-            temperature=0.2 if has_docs else 0.1,
-            max_tokens=1000,
+            # Keeping temperature low for factual accuracy
+            temperature=0.2 if has_docs else 0.0,
+            max_tokens=1200,
         )
 
     def _build_system_prompt(self, intent: Intent, has_docs: bool = False) -> str:
-        """Build system prompt based on whether we have document context."""
         if not has_docs:
             return self.SYSTEM_PROMPT_NO_DOCS
         
         base = self.SYSTEM_PROMPT_WITH_DOCS
         
+        # Inject Intent-Specific Persona
         if intent.intent_type == IntentType.ERROR_TROUBLESHOOTING:
-            base += "\n\nThis is an ERROR TROUBLESHOOTING query. Focus on:\n- Root cause identification\n- Step-by-step resolution\n- Any error codes or specific fixes mentioned in the docs"
+            base += (
+                "\n\nCONTEXT: ERROR TROUBLESHOOTING\n"
+                "- Prioritize root cause analysis.\n"
+                "- Check for 'Known Issues' or 'Workarounds' in the docs."
+            )
         elif intent.intent_type == IntentType.TASK_GUIDANCE:
-            base += "\n\nThis is a TASK GUIDANCE query. Focus on:\n- Clear numbered steps\n- Prerequisites or requirements\n- Expected outcomes"
+            base += (
+                "\n\nCONTEXT: TASK GUIDANCE\n"
+                "- Focus on prerequisites and expected outcomes.\n"
+                "- Ensure steps are sequential and logically ordered."
+            )
         
         return base
 
@@ -77,36 +81,29 @@ Be concise but thorough. Use bullet points for steps."""
         intent: Intent, 
         document_context: Optional[str] = None
     ) -> str:
-        """Build user prompt with intent context and RAG documentation."""
         parts = []
         
-        # Add document context if available
         if document_context and document_context.strip():
-            parts.append("=" * 50)
-            parts.append("RELEVANT DOCUMENTATION:")
-            parts.append("=" * 50)
+            parts.append("### START OF DOCUMENTATION CONTEXT ###")
             parts.append(document_context)
-            parts.append("=" * 50)
-            parts.append("")
+            parts.append("### END OF DOCUMENTATION CONTEXT ###\n")
         
-        # Add the user's question
-        parts.append("USER QUESTION:")
+        # Enrich the query with detected entities (e.g., Error Codes)
+        query_display = query_text
+        error_code = intent.entities.get("error_code")
+        if error_code:
+            query_display = f"[Target Error: {error_code}] {query_display}"
+
+        parts.append(f"USER QUESTION: {query_display}")
         
-        prompt = query_text
-        if intent.entities.get("error_code"):
-            prompt = f"[Error Code: {intent.entities['error_code']}] {prompt}"
-        
-        parts.append(prompt)
-        
-        if document_context and document_context.strip():
-            parts.append("")
-            parts.append("Please read the documentation above carefully and provide a helpful answer based on what you find. Summarize the relevant information and reference which document(s) you used.")
-        
+        if document_context:
+            parts.append("\nInstruction: Answer using ONLY the context above. If not found, follow the escalation protocol.")
+
         return "\n".join(parts)
 
     def _format_context(self, messages: List[ContextMessage]) -> List[str]:
-        """Format context messages for prompt."""
+        """Keep the last 5 messages to maintain flow without hitting context limits."""
         return [
-            f"{msg.role.value}: {msg.content}"
+            f"{msg.role.value.upper()}: {msg.content}"
             for msg in messages[-5:]
         ]
