@@ -181,21 +181,24 @@ class ProcessAIQueryService:
         )
 
     def _get_rag_context(self, query: str) -> Optional[str]:
-        """Get document context for RAG by extracting PDF content."""
+        """Get document context for RAG."""
         try:
-            # First search for relevant documents
-            documents = self._document_client.search(query)
-            if not documents:
-                return None
+            # Check if document client supports context extraction (RAGDocumentClient)
+            if hasattr(self._document_client, 'get_context_for_query'):
+                context = self._document_client.get_context_for_query(query, max_tokens=3000)
+                if context:
+                    print(f"[RAG] Retrieved {len(context)} chars of context")
+                    return context
             
-            # Get document IDs
-            doc_ids = [doc.document_id for doc in documents[:3]]  # Top 3 docs
-            
-            # Check if document client supports content extraction
+            # Fallback: Check for get_documents_content method
             if hasattr(self._document_client, 'get_documents_content'):
+                documents = self._document_client.search(query)
+                if not documents:
+                    return None
+                
+                doc_ids = [doc.document_id for doc in documents[:3]]
                 contents = self._document_client.get_documents_content(doc_ids, max_chars_per_doc=4000)
                 if contents:
-                    # Build context string with document titles
                     context_parts = []
                     for doc in documents[:3]:
                         if doc.document_id in contents:
@@ -206,6 +209,7 @@ class ProcessAIQueryService:
                         print(f"[RAG] Retrieved {len(context)} chars from {len(context_parts)} documents")
                         return context
             
+            print("[RAG] No context extraction method available on document client")
             return None
             
         except Exception as e:
