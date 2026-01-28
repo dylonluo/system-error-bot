@@ -183,17 +183,24 @@ class ProcessAIQueryService:
     def _get_rag_context(self, query: str) -> Optional[str]:
         """Get document context for RAG."""
         try:
+            print(f"[RAG Service] Getting context for: {query[:50]}...")
+            
             # Check if document client supports context extraction (RAGDocumentClient)
             if hasattr(self._document_client, 'get_context_for_query'):
+                print("[RAG Service] Using get_context_for_query method")
                 context = self._document_client.get_context_for_query(query, max_tokens=3000)
                 if context:
-                    print(f"[RAG] Retrieved {len(context)} chars of context")
+                    print(f"[RAG Service] Retrieved {len(context)} chars of context")
                     return context
+                else:
+                    print("[RAG Service] get_context_for_query returned empty")
             
             # Fallback: Check for get_documents_content method
             if hasattr(self._document_client, 'get_documents_content'):
+                print("[RAG Service] Using get_documents_content fallback")
                 documents = self._document_client.search(query)
                 if not documents:
+                    print("[RAG Service] No documents found in search")
                     return None
                 
                 doc_ids = [doc.document_id for doc in documents[:3]]
@@ -206,12 +213,14 @@ class ProcessAIQueryService:
                     
                     if context_parts:
                         context = "\n\n".join(context_parts)
-                        print(f"[RAG] Retrieved {len(context)} chars from {len(context_parts)} documents")
+                        print(f"[RAG Service] Retrieved {len(context)} chars from {len(context_parts)} documents")
                         return context
             
-            print("[RAG] No context extraction method available on document client")
+            print("[RAG Service] No context extraction method available on document client")
             return None
             
         except Exception as e:
-            print(f"[RAG] Error getting context: {e}")
+            print(f"[RAG Service] Error getting context: {e}")
+            import traceback
+            traceback.print_exc()
             return None
