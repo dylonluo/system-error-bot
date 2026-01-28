@@ -1,6 +1,6 @@
 """Real Document Repository Client connecting to Unit 3"""
 import requests
-from typing import List, Optional
+from typing import List, Optional, Dict
 from uuid import uuid4
 
 from .mock_document_search_client import IDocumentSearchClient
@@ -66,3 +66,48 @@ class DocumentRepositoryClient(IDocumentSearchClient):
         except Exception as e:
             print(f"[Document Client] Error searching: {e}")
             return []
+
+    def get_document_content(self, document_id: str, max_chars: int = 8000) -> Optional[str]:
+        """Get extracted text content from a document."""
+        if not self._available:
+            return None
+
+        try:
+            response = requests.get(
+                f"{self._base_url}/api/v1/documents/content/{document_id}",
+                params={"max_chars": max_chars},
+                timeout=30  # PDF extraction can take time
+            )
+
+            if response.status_code != 200:
+                return None
+
+            data = response.json()
+            return data.get("content")
+
+        except Exception as e:
+            print(f"[Document Client] Error getting content: {e}")
+            return None
+
+    def get_documents_content(self, document_ids: List[str], max_chars_per_doc: int = 4000) -> Dict[str, str]:
+        """Get extracted text content from multiple documents."""
+        if not self._available:
+            return {}
+
+        try:
+            response = requests.post(
+                f"{self._base_url}/api/v1/documents/content/batch",
+                json=document_ids,
+                params={"max_chars_per_doc": max_chars_per_doc},
+                timeout=60  # Multiple PDFs can take time
+            )
+
+            if response.status_code != 200:
+                return {}
+
+            data = response.json()
+            return data.get("documents", {})
+
+        except Exception as e:
+            print(f"[Document Client] Error getting batch content: {e}")
+            return {}

@@ -181,14 +181,33 @@ class ProcessAIQueryService:
         )
 
     def _get_rag_context(self, query: str) -> Optional[str]:
-        """Get document context for RAG if the client supports it."""
-        # Check if document client has RAG capabilities
-        if hasattr(self._document_client, 'get_context_for_query'):
-            try:
-                context = self._document_client.get_context_for_query(query, max_tokens=2000)
-                if context:
-                    print(f"[RAG] Retrieved {len(context)} chars of document context")
-                    return context
-            except Exception as e:
-                print(f"[RAG] Error getting context: {e}")
-        return None
+        """Get document context for RAG by extracting PDF content."""
+        try:
+            # First search for relevant documents
+            documents = self._document_client.search(query)
+            if not documents:
+                return None
+            
+            # Get document IDs
+            doc_ids = [doc.document_id for doc in documents[:3]]  # Top 3 docs
+            
+            # Check if document client supports content extraction
+            if hasattr(self._document_client, 'get_documents_content'):
+                contents = self._document_client.get_documents_content(doc_ids, max_chars_per_doc=4000)
+                if contents:
+                    # Build context string with document titles
+                    context_parts = []
+                    for doc in documents[:3]:
+                        if doc.document_id in contents:
+                            context_parts.append(f"=== Document: {doc.title} ===\n{contents[doc.document_id]}")
+                    
+                    if context_parts:
+                        context = "\n\n".join(context_parts)
+                        print(f"[RAG] Retrieved {len(context)} chars from {len(context_parts)} documents")
+                        return context
+            
+            return None
+            
+        except Exception as e:
+            print(f"[RAG] Error getting context: {e}")
+            return None

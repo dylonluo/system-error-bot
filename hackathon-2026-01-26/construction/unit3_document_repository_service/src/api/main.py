@@ -108,6 +108,26 @@ async def health_check():
     return {"status": "healthy", "service": "document-repository-service", "version": "1.0.0"}
 
 
+@app.get("/api/v1/documents/content/{document_id}")
+async def get_document_content(document_id: str, max_chars: int = 8000):
+    """Get extracted text content from a PDF document."""
+    if hasattr(s3_adapter, 'get_document_content'):
+        content = s3_adapter.get_document_content(document_id, max_chars)
+        if content:
+            return {"document_id": document_id, "content": content, "chars": len(content)}
+        return {"document_id": document_id, "content": None, "error": "Could not extract content"}
+    return {"document_id": document_id, "content": None, "error": "Content extraction not available"}
+
+
+@app.post("/api/v1/documents/content/batch")
+async def get_documents_content_batch(document_ids: list[str], max_chars_per_doc: int = 4000):
+    """Get extracted text content from multiple PDF documents."""
+    if hasattr(s3_adapter, 'get_documents_content'):
+        contents = s3_adapter.get_documents_content(document_ids, max_chars_per_doc)
+        return {"documents": contents, "count": len(contents)}
+    return {"documents": {}, "count": 0, "error": "Content extraction not available"}
+
+
 @app.get("/")
 async def root():
     """Root endpoint."""
