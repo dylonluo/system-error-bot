@@ -1,33 +1,33 @@
 /* ===== Castlery Brand CSS Variables ===== */
 :root {
-    /* Castlery Brand Colors - Minimalist & Elegant */
+    /* Castlery Brand Colors */
+    --castlery-orange: #D25C1B;       /* Primary orange */
+    --castlery-brown: #834024;        /* Dark brown */
+    --castlery-cream: #F6F3E7;        /* Light cream background */
+    --castlery-dark: #3C101E;         /* Dark burgundy/maroon */
+    
+    /* Extended palette */
+    --castlery-orange-hover: #b84f17;
     --castlery-black: #1a1a1a;
-    --castlery-charcoal: #333333;
-    --castlery-dark-gray: #4a4a4a;
+    --castlery-charcoal: #2d2d2d;
     --castlery-gray: #6b6b6b;
     --castlery-light-gray: #9a9a9a;
-    --castlery-silver: #c4c4c4;
-    --castlery-cream: #f5f3f0;
-    --castlery-warm-white: #faf9f7;
     --castlery-white: #ffffff;
     --castlery-beige: #e8e4df;
-    --castlery-warm-beige: #d4cec6;
-    --castlery-accent: #8b7355;  /* Warm brown accent */
-    --castlery-accent-hover: #6d5a44;
     
     /* Semantic Colors */
-    --primary-color: var(--castlery-black);
-    --primary-light: var(--castlery-charcoal);
-    --accent-color: var(--castlery-accent);
-    --accent-hover: var(--castlery-accent-hover);
-    --success-color: #4a7c59;
-    --warning-color: #c4a35a;
-    --error-color: #a65d57;
-    --text-primary: var(--castlery-black);
+    --primary-color: var(--castlery-dark);
+    --primary-light: var(--castlery-brown);
+    --accent-color: var(--castlery-orange);
+    --accent-hover: var(--castlery-orange-hover);
+    --success-color: #5a8a6a;
+    --warning-color: #d4a85a;
+    --error-color: #c47a74;
+    --text-primary: var(--castlery-dark);
     --text-secondary: var(--castlery-gray);
     --text-light: var(--castlery-light-gray);
     --bg-primary: var(--castlery-white);
-    --bg-secondary: var(--castlery-warm-white);
+    --bg-secondary: var(--castlery-cream);
     --bg-tertiary: var(--castlery-cream);
     --border-color: var(--castlery-beige);
     
@@ -71,21 +71,28 @@ body {
 /* ===== Sidebar - Castlery Style ===== */
 .sidebar {
     width: 300px;
-    background: var(--castlery-black);
+    background: var(--castlery-brown);
     color: var(--castlery-white);
     display: flex;
     flex-direction: column;
 }
 
 .sidebar-header {
-    padding: 28px 24px;
+    padding: 20px 24px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .logo {
     display: flex;
     align-items: center;
-    gap: 14px;
+    justify-content: center;
+}
+
+.logo-image {
+    max-height: 96px;
+    width: auto;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
 }
 
 .logo-icon {
@@ -119,9 +126,9 @@ body {
 .new-chat-btn {
     margin: 20px;
     padding: 14px 24px;
-    background: transparent;
+    background: var(--castlery-orange);
     color: var(--castlery-white);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: none;
     border-radius: var(--radius-sm);
     font-size: 13px;
     font-weight: 500;
@@ -135,8 +142,7 @@ body {
 }
 
 .new-chat-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.3);
+    background: var(--castlery-orange-hover);
 }
 
 .conversations-section {
@@ -745,7 +751,7 @@ body {
     width: 44px;
     height: 44px;
     border-radius: var(--radius-sm);
-    background: var(--castlery-black);
+    background: var(--castlery-orange);
     border: none;
     color: var(--castlery-white);
     cursor: pointer;
@@ -757,7 +763,7 @@ body {
 }
 
 .send-btn:hover {
-    background: var(--castlery-charcoal);
+    background: var(--castlery-orange-hover);
 }
 
 .send-btn:disabled {
@@ -1091,13 +1097,7 @@ body {
 
 
 /* ===== Logo Images ===== */
-.logo-image {
-    height: 28px;
-    width: auto;
-    object-fit: contain;
-    /* Invert to white if logo is dark - remove this line if logo is already white */
-    filter: brightness(0) invert(1);
-}
+/* .logo-image is defined above in sidebar section */
 
 .welcome-logo {
     height: 40px;
