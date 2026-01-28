@@ -53,33 +53,49 @@ class AIOrchestrationClient:
             print(f"[AI Client] Unit 4 not available: {e}, will use fallback")
             self._unit4_available = False
 
-    def process_query(self, query: str, context: str, user_id: UUID) -> AIResponse:
-        """Process user query using Unit 4 or fallback."""
+    def process_query(self, query: str, context: str, user_id: UUID, conversation_id: UUID = None) -> AIResponse:
+        """Process user query using Unit 4 or fallback.
+        
+        Args:
+            query: The user's question
+            context: Previous conversation context (messages)
+            user_id: The user's ID
+            conversation_id: The conversation ID (important for follow-ups!)
+        """
         # Try Unit 4 first
         if self._unit4_available:
-            result = self._call_unit4(query, str(user_id), context)
+            result = self._call_unit4(query, str(user_id), context, conversation_id)
             if result:
                 return result
         
         # Fallback: Use Unit 3 for documents + generate simple response
         return self._fallback_response(query)
 
-    def _call_unit4(self, query: str, user_id: str, context: str) -> Optional[AIResponse]:
+    def _call_unit4(self, query: str, user_id: str, context: str, conversation_id: UUID = None) -> Optional[AIResponse]:
         """Call Unit 4 AI Orchestration Service."""
         try:
-            # Generate a proper UUID for conversation_id
             import uuid
-            conversation_uuid = str(uuid.uuid4())
+            # Use provided conversation_id or generate new one
+            conv_id = str(conversation_id) if conversation_id else str(uuid.uuid4())
             
             print(f"[AI Client] Calling Unit 4 with query: {query[:50]}...")
+            print(f"[AI Client] Conversation ID: {conv_id}")
+            
+            # Build request with context
+            request_data = {
+                "query": query,
+                "user_id": user_id,
+                "conversation_id": conv_id,
+            }
+            
+            # Include conversation context if provided
+            if context and context.strip():
+                request_data["context"] = context
+                print(f"[AI Client] Including context: {len(context)} chars")
             
             response = requests.post(
                 f"{self._unit4_url}/api/v1/ai/process-query",
-                json={
-                    "query": query,
-                    "user_id": user_id,
-                    "conversation_id": conversation_uuid,
-                },
+                json=request_data,
                 timeout=60  # Increased timeout - AI + RAG can take time
             )
 

@@ -9,6 +9,7 @@ class ProcessQueryRequest(BaseModel):
     conversation_id: UUID
     user_id: UUID
     screenshot_url: Optional[str] = None
+    context: Optional[str] = None  # Previous conversation context for follow-ups
 
 
 class DetectIntentRequest(BaseModel):
