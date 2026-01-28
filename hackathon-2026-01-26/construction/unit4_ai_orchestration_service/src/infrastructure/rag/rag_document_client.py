@@ -1,7 +1,17 @@
-"""RAG-enabled document client that retrieves actual document content from S3."""
+"""RAG-enabled document client that retrieves actual document content from S3.
+
+Supports multiple file formats:
+- PDF files (.pdf) - extracted using pypdf
+- Markdown files (.md) - read directly as plain text
+- Text files (.txt) - read directly as plain text
+
+When both MD and PDF versions exist for the same document, MD is preferred
+for better text quality.
+"""
 
 from typing import List, Optional, Dict
 from dataclasses import dataclass
+import re
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 
@@ -20,7 +30,11 @@ class RAGSearchResult:
 
 
 class RAGDocumentClient(IDocumentSearchClient):
-    """Document client with RAG capabilities - extracts and searches actual PDF content."""
+    """Document client with RAG capabilities - extracts and searches document content.
+    
+    Supports PDF, Markdown, and plain text files from S3.
+    Prefers Markdown over PDF when both exist for the same document.
+    """
 
     def __init__(
         self,
@@ -53,43 +67,112 @@ class RAGDocumentClient(IDocumentSearchClient):
             self._available = False
 
     def _index_documents(self):
-        """Index all PDF documents from S3."""
+        """Index all supported documents from S3 (PDF, Markdown, Text).
+        
+        Prefers Markdown over PDF when both exist for the same document.
+        """
         try:
             paginator = self._s3_client.get_paginator('list_objects_v2')
             pages = paginator.paginate(Bucket=self._bucket_name, Prefix=self._prefix)
             
-            pdf_count = 0
-            indexed_count = 0
+            # First pass: collect all files and group by base name
+            all_files: Dict[str, Dict[str, dict]] = {}  # base_name -> {ext -> s3_obj}
             
             for page in pages:
                 for obj in page.get('Contents', []):
                     key = obj['Key']
-                    if key.lower().endswith('.pdf'):
-                        pdf_count += 1
-                        if self._index_single_document(key, obj):
-                            indexed_count += 1
+                    key_lower = key.lower()
+                    
+                    # Determine file type and base name
+                    if key_lower.endswith('.pdf'):
+                        base_name = self._get_base_name(key, '.pdf')
+                        file_type = 'pdf'
+                    elif key_lower.endswith('.md'):
+                        base_name = self._get_base_name(key, '.md')
+                        file_type = 'md'
+                    elif key_lower.endswith('.markdown'):
+                        base_name = self._get_base_name(key, '.markdown')
+                        file_type = 'md'
+                    elif key_lower.endswith('.txt'):
+                        base_name = self._get_base_name(key, '.txt')
+                        file_type = 'txt'
+                    else:
+                        continue  # Skip unsupported files
+                    
+                    if base_name not in all_files:
+                        all_files[base_name] = {}
+                    all_files[base_name][file_type] = {'key': key, 'obj': obj}
             
+            # Second pass: index files, preferring MD > TXT > PDF
+            file_counts = {'pdf': 0, 'md': 0, 'txt': 0, 'skipped': 0}
+            indexed_count = 0
+            
+            for base_name, formats in all_files.items():
+                # Priority: md > txt > pdf
+                if 'md' in formats:
+                    chosen = formats['md']
+                    file_type = 'md'
+                    if 'pdf' in formats:
+                        file_counts['skipped'] += 1
+                        print(f"[RAG Client] Skipping PDF (MD exists): {formats['pdf']['key']}")
+                elif 'txt' in formats:
+                    chosen = formats['txt']
+                    file_type = 'txt'
+                    if 'pdf' in formats:
+                        file_counts['skipped'] += 1
+                        print(f"[RAG Client] Skipping PDF (TXT exists): {formats['pdf']['key']}")
+                else:
+                    chosen = formats['pdf']
+                    file_type = 'pdf'
+                
+                file_counts[file_type] += 1
+                if self._index_single_document(chosen['key'], chosen['obj'], file_type):
+                    indexed_count += 1
+            
+            total_files = file_counts['pdf'] + file_counts['md'] + file_counts['txt']
             stats = self._content_store.get_stats()
-            print(f"[RAG Client] Indexed {indexed_count}/{pdf_count} PDFs")
+            print(f"[RAG Client] Indexed {indexed_count}/{total_files} files")
+            print(f"[RAG Client] File types: {file_counts['pdf']} PDFs, {file_counts['md']} Markdown, {file_counts['txt']} Text")
+            if file_counts['skipped'] > 0:
+                print(f"[RAG Client] Skipped {file_counts['skipped']} duplicate PDFs (MD/TXT preferred)")
             print(f"[RAG Client] Total chunks: {stats['total_chunks']}")
             
         except ClientError as e:
             print(f"[RAG Client] Error listing S3 objects: {e}")
 
-    def _index_single_document(self, key: str, s3_obj: dict) -> bool:
-        """Download and index a single PDF document."""
+    def _get_base_name(self, key: str, extension: str) -> str:
+        """Extract base name from S3 key for deduplication.
+        
+        Removes extension and common suffixes like date stamps.
+        Example: 'path/NS-Invoice-Guide-270126-071806.pdf' -> 'path/ns-invoice-guide'
+        """
+        # Remove extension (case-insensitive)
+        base = re.sub(re.escape(extension) + '$', '', key, flags=re.IGNORECASE)
+        
+        # Remove common date suffixes like -270126-071806
+        base = re.sub(r'-\d{6}-\d{6}$', '', base)
+        
+        # Normalize to lowercase for comparison
+        return base.lower().strip()
+
+    def _index_single_document(self, key: str, s3_obj: dict, file_type: str) -> bool:
+        """Download and index a single document (PDF, MD, or TXT)."""
         doc_id = key  # Use S3 key as document ID
         
         if self._content_store.is_indexed(doc_id):
             return True
         
         try:
-            # Download PDF
+            # Download file
             response = self._s3_client.get_object(Bucket=self._bucket_name, Key=key)
-            pdf_bytes = response['Body'].read()
+            file_bytes = response['Body'].read()
             
-            # Extract text
-            full_text = self._pdf_extractor.extract_full_text(pdf_bytes)
+            # Extract text based on file type
+            if file_type == 'pdf':
+                full_text = self._pdf_extractor.extract_full_text(file_bytes)
+            else:
+                # Markdown and text files - decode directly
+                full_text = self._extract_text_file(file_bytes)
             
             if not full_text.strip():
                 print(f"[RAG Client] No text extracted from: {key}")
@@ -97,7 +180,7 @@ class RAGDocumentClient(IDocumentSearchClient):
             
             # Parse metadata from filename
             filename = key.replace(self._prefix, '')
-            title, tags, category = self._parse_filename(filename)
+            title, tags, category = self._parse_filename(filename, file_type)
             
             # Generate presigned URL
             try:
@@ -116,6 +199,7 @@ class RAGDocumentClient(IDocumentSearchClient):
                 'tags': tags,
                 'category': category,
                 'size': s3_obj.get('Size', 0),
+                'file_type': file_type,
             }
             
             # Add to content store
@@ -128,20 +212,65 @@ class RAGDocumentClient(IDocumentSearchClient):
                 category=category,
             )
             
-            print(f"[RAG Client] Indexed: {title} ({chunk_count} chunks)")
+            print(f"[RAG Client] Indexed [{file_type.upper()}]: {title} ({chunk_count} chunks)")
             return True
             
         except Exception as e:
             print(f"[RAG Client] Error indexing {key}: {e}")
             return False
 
-    def _parse_filename(self, filename: str) -> tuple:
-        """Parse document metadata from filename."""
-        import re
+    def _extract_text_file(self, file_bytes: bytes) -> str:
+        """Extract text from markdown or plain text files."""
+        # Try common encodings
+        encodings = ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']
         
-        # Remove .pdf extension and date suffix
-        name = re.sub(r'-\d{6}-\d{6}\.pdf$', '', filename)
-        name = re.sub(r'\.pdf$', '', name)
+        for encoding in encodings:
+            try:
+                text = file_bytes.decode(encoding)
+                # Clean up the text
+                text = self._clean_markdown(text)
+                return text
+            except UnicodeDecodeError:
+                continue
+        
+        # Last resort - decode with errors ignored
+        return file_bytes.decode('utf-8', errors='ignore')
+
+    def _clean_markdown(self, text: str) -> str:
+        """Clean markdown text for better indexing."""
+        # Remove HTML comments
+        text = re.sub(r'<!--.*?-->', '', text, flags=re.DOTALL)
+        
+        # Remove image references but keep alt text
+        text = re.sub(r'!\[([^\]]*)\]\([^)]+\)', r'\1', text)
+        
+        # Convert links to just text [text](url) -> text
+        text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+        
+        # Remove code block markers but keep content
+        text = re.sub(r'```\w*\n?', '\n', text)
+        
+        # Remove inline code backticks
+        text = re.sub(r'`([^`]+)`', r'\1', text)
+        
+        # Remove horizontal rules
+        text = re.sub(r'^[-*_]{3,}\s*$', '', text, flags=re.MULTILINE)
+        
+        # Normalize whitespace
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        
+        return text.strip()
+
+    def _parse_filename(self, filename: str, file_type: str = 'pdf') -> tuple:
+        """Parse document metadata from filename."""
+        # Remove extension and date suffix based on file type
+        if file_type == 'pdf':
+            name = re.sub(r'-\d{6}-\d{6}\.pdf$', '', filename, flags=re.IGNORECASE)
+            name = re.sub(r'\.pdf$', '', name, flags=re.IGNORECASE)
+        elif file_type == 'md':
+            name = re.sub(r'\.(md|markdown)$', '', filename, flags=re.IGNORECASE)
+        else:  # txt
+            name = re.sub(r'\.txt$', '', filename, flags=re.IGNORECASE)
         
         tags = []
         category = "General"
@@ -180,9 +309,12 @@ class RAGDocumentClient(IDocumentSearchClient):
         if any(kw in name.lower() for kw in ['error', 'issue', 'fail', 'unable']):
             tags.extend(["error", "troubleshooting"])
         
-        title = name.strip() or filename.replace('.pdf', '')
+        # Clean up title
+        title = re.sub(r'\.(pdf|md|markdown|txt)$', '', name.strip(), flags=re.IGNORECASE)
+        title = title or filename
         
         return title, list(set(tags)), category
+
 
     def search(self, query: str, filters: Optional[dict] = None) -> List[DocumentLink]:
         """Search for documents and return links with relevance scores."""
@@ -215,7 +347,6 @@ class RAGDocumentClient(IDocumentSearchClient):
             top_chunk = doc_chunks[doc_id][0] if doc_chunks[doc_id] else None
             description = ""
             if top_chunk:
-                # Take first 200 chars of most relevant chunk
                 description = top_chunk.content[:200] + "..." if len(top_chunk.content) > 200 else top_chunk.content
             
             links.append(DocumentLink(
@@ -224,7 +355,7 @@ class RAGDocumentClient(IDocumentSearchClient):
                 url=metadata.get('url', ''),
                 description=description,
                 category=metadata.get('category', 'General'),
-                relevance=min(score / 20.0, 1.0),  # Normalize score
+                relevance=min(score / 20.0, 1.0),
             ))
         
         return links
@@ -286,7 +417,6 @@ class RAGDocumentClient(IDocumentSearchClient):
             doc_context = f"[From: {result.document_link.title}]\n{result.combined_context}"
             
             if total_chars + len(doc_context) > char_limit:
-                # Truncate to fit
                 remaining = char_limit - total_chars
                 doc_context = doc_context[:remaining] + "..."
             
