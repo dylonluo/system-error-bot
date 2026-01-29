@@ -834,20 +834,27 @@ body {
     background: var(--warm-white);
     border-radius: var(--radius-sm);
     border: 1px solid var(--glass-border);
-    margin-top: var(--space-xs);
+    margin-top: var(--space-sm);
+}
+
+.confidence-label-text {
+    font-size: 11px;
+    color: var(--taupe);
+    white-space: nowrap;
 }
 
 .confidence-bar {
     flex: 1;
-    height: 4px;
+    height: 6px;
     background: var(--cream-dark);
-    border-radius: 2px;
+    border-radius: 3px;
     overflow: hidden;
+    min-width: 80px;
 }
 
 .confidence-fill {
     height: 100%;
-    border-radius: 2px;
+    border-radius: 3px;
     transition: width 0.5s var(--ease-out);
 }
 
@@ -856,10 +863,11 @@ body {
 .confidence-fill.low { background: linear-gradient(90deg, var(--error), #FF5722); }
 
 .confidence-label {
-    font-size: 10px;
-    color: var(--taupe);
-    min-width: 50px;
+    font-size: 11px;
+    color: var(--charcoal);
+    min-width: 35px;
     text-align: right;
+    font-weight: 500;
 }
 
 /* ===== Smart Suggestions ===== */
