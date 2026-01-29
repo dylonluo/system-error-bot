@@ -7,17 +7,23 @@ router = APIRouter(prefix="/api/v1/communication", tags=["escalation"])
 
 
 def get_email_provider():
-    """Get email provider - tries SES first, falls back to mock."""
-    from ...infrastructure.email import SESEmailProvider, MockEmailProvider
+    """Get email provider - tries SMTP first, then SES, falls back to mock."""
+    from ...infrastructure.email import SMTPEmailProvider, SESEmailProvider, MockEmailProvider
     
-    # Try SES first
+    # Try SMTP first (Gmail/Outlook)
+    smtp_provider = SMTPEmailProvider()
+    if smtp_provider.is_available():
+        print("[Escalation] Using SMTP for email delivery")
+        return smtp_provider
+    
+    # Try SES second
     ses_provider = SESEmailProvider(region="ap-southeast-1")
     if ses_provider.is_available():
         print("[Escalation] Using AWS SES for email delivery")
         return ses_provider
     
     # Fallback to mock
-    print("[Escalation] SES not available, using mock email provider")
+    print("[Escalation] No email provider configured, using mock")
     return MockEmailProvider()
 
 
