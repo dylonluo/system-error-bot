@@ -1,6 +1,6 @@
 // ===== Configuration =====
 const API_BASE_URL = 'http://localhost:8000/api/v1/chat';
-const DEMO_TOKEN = 'demo-token-12345'; // Mock token for demo
+const DEMO_TOKEN = 'demo-token-12345';
 
 // ===== State =====
 let currentConversationId = null;
@@ -13,17 +13,28 @@ let lastConfidence = 1.0;
 
 // ===== Typing Status Messages =====
 const TYPING_MESSAGES = [
-    "AI is analyzing your question...",
+    "Thinking...",
     "Searching documentation...",
-    "Finding relevant information...",
-    "Generating response...",
+    "Finding the best answer...",
+    "Almost there...",
 ];
 
 // ===== Initialize =====
 document.addEventListener('DOMContentLoaded', () => {
     loadConversations();
     animateWelcome();
+    
+    // Start with panel collapsed on mobile
+    if (window.innerWidth < 768) {
+        document.getElementById('side-panel').classList.add('collapsed');
+    }
 });
+
+// ===== Side Panel Toggle =====
+function toggleSidePanel() {
+    const panel = document.getElementById('side-panel');
+    panel.classList.toggle('collapsed');
+}
 
 // ===== API Functions =====
 async function apiRequest(endpoint, options = {}) {
@@ -62,7 +73,6 @@ async function loadConversations() {
         renderConversationList();
     } catch (error) {
         console.log('Could not load conversations:', error.message);
-        // Show empty state - this is fine for new users
     }
 }
 
@@ -71,7 +81,7 @@ function renderConversationList() {
     
     if (conversations.length === 0) {
         list.innerHTML = `
-            <div class="empty-state" style="padding: 20px; text-align: center; color: var(--text-light); font-size: 13px;">
+            <div class="empty-state">
                 No conversations yet.<br>Start a new one!
             </div>
         `;
@@ -92,23 +102,20 @@ function renderConversationList() {
 
 async function loadConversation(conversationId) {
     try {
-        showLoading();
         const data = await apiRequest(`/conversations/${conversationId}`);
         
         currentConversationId = conversationId;
         
-        // Update header
         document.getElementById('current-chat-title').textContent = data.title || 'Conversation';
         updateStatusBadge(data.status);
-        
-        // Render messages
         renderMessages(data.messages || []);
-        
-        // Update sidebar
         renderConversationList();
-        
-        // Hide welcome message
         document.getElementById('welcome-message').style.display = 'none';
+        
+        // Close panel on mobile after selection
+        if (window.innerWidth < 768) {
+            document.getElementById('side-panel').classList.add('collapsed');
+        }
         
     } catch (error) {
         showToast('Could not load conversation', 'error');
@@ -118,22 +125,21 @@ async function loadConversation(conversationId) {
 function startNewConversation() {
     currentConversationId = null;
     
-    // Reset UI
-    document.getElementById('current-chat-title').textContent = 'New Conversation';
+    document.getElementById('current-chat-title').textContent = 'CARES';
     updateStatusBadge('active');
     document.getElementById('messages').innerHTML = '';
     document.getElementById('welcome-message').style.display = 'block';
     
-    // Clear and re-enable input
     document.getElementById('message-input').value = '';
     enableChatInput();
     removeAttachment();
-    
-    // Update sidebar
     renderConversationList();
-    
-    // Re-animate welcome
     animateWelcome();
+    
+    // Close panel on mobile
+    if (window.innerWidth < 768) {
+        document.getElementById('side-panel').classList.add('collapsed');
+    }
 }
 
 // ===== Message Functions =====
@@ -143,14 +149,11 @@ async function sendMessage() {
     
     if (!text) return;
     
-    // Disable send button
     const sendBtn = document.getElementById('send-btn');
     sendBtn.disabled = true;
     
-    // Hide welcome message
     document.getElementById('welcome-message').style.display = 'none';
     
-    // Add user message to UI immediately
     addMessageToUI({
         role: 'user',
         content: text,
@@ -158,15 +161,11 @@ async function sendMessage() {
         has_screenshot: !!selectedFile
     });
     
-    // Clear input
     input.value = '';
     autoResize(input);
-    
-    // Show typing indicator
     showTypingIndicator();
     
     try {
-        // Prepare form data
         const formData = new FormData();
         formData.append('query_text', text);
         
@@ -174,7 +173,6 @@ async function sendMessage() {
             formData.append('screenshot', selectedFile);
         }
         
-        // Determine endpoint
         const endpoint = currentConversationId 
             ? `/conversations/${currentConversationId}/messages`
             : '/conversations/new/messages';
@@ -193,31 +191,26 @@ async function sendMessage() {
         
         const data = await response.json();
         
-        // Update conversation ID if new
         if (!currentConversationId) {
             currentConversationId = data.conversation_id;
-            loadConversations(); // Refresh sidebar
+            loadConversations();
         }
         
-        // Hide typing indicator
         hideTypingIndicator();
         
-        // Add assistant response with typewriter effect
         addMessageToUIEnhanced({
             message_id: data.message_id,
             role: 'assistant',
             content: data.content,
             timestamp: data.timestamp,
             documentation_links: data.documentation_links || [],
-            confidence: data.confidence || 0.8,  // Get confidence from response
+            confidence: data.confidence || 0.8,
             intent: data.intent
-        }, true);  // Enable typewriter effect
+        }, true);
         
-        // Update header
         document.getElementById('current-chat-title').textContent = 
-            text.substring(0, 50) + (text.length > 50 ? '...' : '');
+            text.substring(0, 40) + (text.length > 40 ? '...' : '');
         
-        // Clear attachment
         removeAttachment();
         
     } catch (error) {
@@ -285,7 +278,7 @@ function addMessageToUI(message) {
                         onclick="openFeedbackModal('${message.message_id}')"
                         ${hasFeedback ? 'disabled' : ''}>
                     <i class="fas fa-${hasFeedback ? 'check' : 'comment'}"></i>
-                    ${hasFeedback ? 'Feedback Submitted' : 'Give Feedback'}
+                    ${hasFeedback ? 'Thanks!' : 'Feedback'}
                 </button>
             </div>
         `;
@@ -313,22 +306,20 @@ function addMessageToUI(message) {
 function renderMessages(messages) {
     const container = document.getElementById('messages');
     container.innerHTML = '';
-    
     messages.forEach(msg => addMessageToUI(msg));
 }
+
 
 // ===== Screenshot Functions =====
 function handleFileSelect(event) {
     const file = event.target.files[0];
     if (!file) return;
     
-    // Validate file type
     if (!['image/jpeg', 'image/png'].includes(file.type)) {
         showToast('Only JPEG and PNG images are allowed', 'error');
         return;
     }
     
-    // Validate file size (5MB)
     if (file.size > 5 * 1024 * 1024) {
         showToast('File size must be less than 5MB', 'error');
         return;
@@ -336,7 +327,6 @@ function handleFileSelect(event) {
     
     selectedFile = file;
     
-    // Show preview
     const preview = document.getElementById('attachment-preview');
     const previewImg = document.getElementById('preview-image');
     previewImg.src = URL.createObjectURL(file);
@@ -355,12 +345,10 @@ function openFeedbackModal(messageId) {
     feedbackAnswered = null;
     feedbackSolved = null;
     
-    // Reset UI
     document.querySelectorAll('#feedback-modal .feedback-btn').forEach(btn => {
         btn.classList.remove('selected');
     });
     document.getElementById('submit-feedback-btn').disabled = true;
-    
     document.getElementById('feedback-modal').classList.remove('hidden');
 }
 
@@ -414,17 +402,15 @@ async function submitFeedback() {
         closeFeedbackModal();
         showToast('Thank you for your feedback!', 'success');
         
-        // Update the feedback button in UI
         const feedbackBtns = document.querySelectorAll('.feedback-btn-small');
         feedbackBtns.forEach(btn => {
-            if (btn.onclick.toString().includes(feedbackMessageId)) {
+            if (btn.onclick && btn.onclick.toString().includes(feedbackMessageId)) {
                 btn.classList.add('submitted');
-                btn.innerHTML = '<i class="fas fa-check"></i> Feedback Submitted';
+                btn.innerHTML = '<i class="fas fa-check"></i> Thanks!';
                 btn.disabled = true;
             }
         });
         
-        // If negative feedback, offer to start new conversation or escalate
         if (!feedbackAnswered || !feedbackSolved) {
             setTimeout(() => {
                 const action = confirm(
@@ -436,7 +422,6 @@ async function submitFeedback() {
                 
                 if (action) {
                     startNewConversation();
-                    showToast('Starting a new conversation...', 'success');
                 } else {
                     escalateConversation();
                 }
@@ -466,7 +451,7 @@ async function confirmEscalation() {
     const reason = document.getElementById('escalation-reason').value.trim();
     
     try {
-        const response = await apiRequest(`/conversations/${currentConversationId}/escalate`, {
+        await apiRequest(`/conversations/${currentConversationId}/escalate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ reason: reason || null })
@@ -474,16 +459,10 @@ async function confirmEscalation() {
         
         closeEscalationModal();
         updateStatusBadge('escalated');
-        
-        // Add system message showing chat has ended
         addEscalationEndMessage();
-        
-        // Disable input
         disableChatInput();
         
-        showToast('Your conversation has been escalated. Support will contact you within 3-5 hours.', 'success');
-        
-        // Refresh conversations
+        showToast('Your conversation has been escalated. Support will contact you soon.', 'success');
         loadConversations();
         
     } catch (error) {
@@ -499,10 +478,10 @@ function addEscalationEndMessage() {
                 <i class="fas fa-check-circle"></i>
             </div>
             <div class="escalation-end-content">
-                <h4>Chat Escalated Successfully</h4>
+                <h4>Request Sent Successfully</h4>
                 <p>Your conversation has been sent to our support team.</p>
                 <p>They will contact you via email within <strong>3-5 business hours</strong>.</p>
-                <p class="escalation-end-note">This chat session has ended. You can start a new conversation if needed.</p>
+                <p class="escalation-end-note">This chat session has ended.</p>
             </div>
             <button class="btn-new-chat" onclick="startNewConversation()">
                 <i class="fas fa-plus"></i> Start New Conversation
@@ -516,10 +495,10 @@ function addEscalationEndMessage() {
 function disableChatInput() {
     const input = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
-    const attachBtn = document.querySelector('.attach-btn');
+    const attachBtn = document.querySelector('.input-action');
     
     input.disabled = true;
-    input.placeholder = 'This conversation has been escalated. Start a new conversation to continue.';
+    input.placeholder = 'This conversation has been escalated.';
     sendBtn.disabled = true;
     if (attachBtn) attachBtn.disabled = true;
 }
@@ -527,10 +506,10 @@ function disableChatInput() {
 function enableChatInput() {
     const input = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
-    const attachBtn = document.querySelector('.attach-btn');
+    const attachBtn = document.querySelector('.input-action');
     
     input.disabled = false;
-    input.placeholder = 'Describe your issue or ask a question...';
+    input.placeholder = 'Ask me anything...';
     sendBtn.disabled = false;
     if (attachBtn) attachBtn.disabled = false;
 }
@@ -540,7 +519,6 @@ function showTypingIndicator() {
     document.getElementById('typing-indicator').classList.remove('hidden');
     scrollToBottom();
     
-    // Cycle through typing messages
     let messageIndex = 0;
     const statusEl = document.getElementById('typing-status');
     
@@ -557,14 +535,16 @@ function hideTypingIndicator() {
     }
 }
 
-function showLoading() {
-    // Could add a loading spinner here
-}
-
 function updateStatusBadge(status) {
     const badge = document.getElementById('chat-status');
-    badge.className = `status-badge status-${status}`;
-    badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+    badge.className = `status-pill status-${status}`;
+    
+    const labels = {
+        active: 'Ready to help',
+        escalated: 'Escalated',
+        resolved: 'Resolved'
+    };
+    badge.textContent = labels[status] || status;
 }
 
 function showToast(message, type = 'success') {
@@ -591,12 +571,14 @@ function showToast(message, type = 'success') {
 
 function scrollToBottom() {
     const container = document.getElementById('messages-container');
-    container.scrollTop = container.scrollHeight;
+    setTimeout(() => {
+        container.scrollTop = container.scrollHeight;
+    }, 50);
 }
 
 function autoResize(textarea) {
     textarea.style.height = 'auto';
-    textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
 }
 
 function handleKeyDown(event) {
@@ -606,20 +588,13 @@ function handleKeyDown(event) {
     }
 }
 
+
 // ===== Formatting Functions =====
 function formatMessageContent(content) {
-    // Basic markdown-like formatting
     let formatted = escapeHtml(content);
-    
-    // Bold
     formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    
-    // Code blocks
     formatted = formatted.replace(/`(.*?)`/g, '<code>$1</code>');
-    
-    // Line breaks
     formatted = formatted.replace(/\n/g, '<br>');
-    
     return formatted;
 }
 
@@ -646,76 +621,43 @@ function formatDate(dateString) {
 
 function formatTime(dateString) {
     if (!dateString) return '';
-    
     const date = new Date(dateString);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-
 // ===== Enhanced UI Functions =====
-
 function animateWelcome() {
-    // Add staggered animation to quick actions
-    const quickActions = document.querySelectorAll('.quick-action');
-    quickActions.forEach((btn, index) => {
-        btn.style.opacity = '0';
-        btn.style.transform = 'translateY(20px)';
+    const cards = document.querySelectorAll('.feature-card');
+    cards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
         setTimeout(() => {
-            btn.style.transition = 'all 0.4s ease';
-            btn.style.opacity = '1';
-            btn.style.transform = 'translateY(0)';
-        }, 300 + (index * 100));
+            card.style.transition = 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, 200 + (index * 100));
     });
 }
 
-// Typewriter effect for AI responses
-function typewriterEffect(element, text, speed = 15) {
-    return new Promise((resolve) => {
-        let index = 0;
-        element.innerHTML = '';
-        
-        function type() {
-            if (index < text.length) {
-                // Handle HTML tags
-                if (text[index] === '<') {
-                    const closeIndex = text.indexOf('>', index);
-                    if (closeIndex !== -1) {
-                        element.innerHTML += text.substring(index, closeIndex + 1);
-                        index = closeIndex + 1;
-                    }
-                } else {
-                    element.innerHTML += text[index];
-                    index++;
-                }
-                setTimeout(type, speed);
-                scrollToBottom();
-            } else {
-                resolve();
-            }
-        }
-        type();
-    });
-}
-
-// Show confidence meter
+// Confidence meter
 function showConfidenceMeter(confidence) {
     lastConfidence = confidence;
     
     let level = 'high';
-    let label = 'High confidence';
+    let label = 'High';
     
     if (confidence < 0.5) {
         level = 'low';
-        label = 'Low confidence';
+        label = 'Low';
         showConfidenceWarning();
     } else if (confidence < 0.75) {
         level = 'medium';
-        label = 'Medium confidence';
+        label = 'Medium';
     }
     
     return `
         <div class="confidence-meter">
-            <span style="font-size: 11px; color: var(--text-light);">AI Confidence:</span>
+            <span style="font-size: 11px; color: var(--taupe);">Confidence:</span>
             <div class="confidence-bar">
                 <div class="confidence-fill ${level}" style="width: ${confidence * 100}%"></div>
             </div>
@@ -724,12 +666,10 @@ function showConfidenceMeter(confidence) {
     `;
 }
 
-// Show confidence warning banner
 function showConfidenceWarning() {
     const warning = document.getElementById('confidence-warning');
     warning.classList.remove('hidden');
     
-    // Auto-hide after 10 seconds
     setTimeout(() => {
         dismissConfidenceWarning();
     }, 10000);
@@ -739,47 +679,34 @@ function dismissConfidenceWarning() {
     document.getElementById('confidence-warning').classList.add('hidden');
 }
 
-// Generate smart follow-up suggestions
+// Smart suggestions
 function generateSuggestions(content, intent) {
     const suggestions = [];
     const contentLower = content.toLowerCase();
     
-    // Based on content keywords - more actionable suggestions
-    if (contentLower.includes('error') || contentLower.includes('issue') || contentLower.includes('problem')) {
+    if (contentLower.includes('error') || contentLower.includes('issue')) {
         suggestions.push({ icon: 'fa-redo', text: 'What if that doesn\'t work?' });
         suggestions.push({ icon: 'fa-info-circle', text: 'Can you explain more?' });
     }
     
-    if (contentLower.includes('sync') || contentLower.includes('integration')) {
-        suggestions.push({ icon: 'fa-clock', text: 'How long does sync take?' });
-        suggestions.push({ icon: 'fa-check-circle', text: 'How do I verify it worked?' });
+    if (contentLower.includes('order') || contentLower.includes('delivery')) {
+        suggestions.push({ icon: 'fa-truck', text: 'How do I track my order?' });
+        suggestions.push({ icon: 'fa-clock', text: 'When will it arrive?' });
     }
     
-    if (contentLower.includes('invoice') || contentLower.includes('billing')) {
-        suggestions.push({ icon: 'fa-file-invoice', text: 'How do I regenerate invoice?' });
-        suggestions.push({ icon: 'fa-edit', text: 'Can I edit the invoice?' });
-    }
-    
-    if (contentLower.includes('order') || contentLower.includes('fulfillment')) {
-        suggestions.push({ icon: 'fa-truck', text: 'How do I track shipment?' });
-        suggestions.push({ icon: 'fa-undo', text: 'How do I cancel order?' });
-    }
-    
-    if (contentLower.includes('return') || contentLower.includes('rma')) {
+    if (contentLower.includes('return') || contentLower.includes('refund')) {
         suggestions.push({ icon: 'fa-box', text: 'What\'s the return policy?' });
-        suggestions.push({ icon: 'fa-money-bill', text: 'When will refund process?' });
+        suggestions.push({ icon: 'fa-money-bill', text: 'When will I get my refund?' });
     }
     
-    // Generic helpful suggestions if we don't have specific ones
     if (suggestions.length === 0) {
-        suggestions.push({ icon: 'fa-question-circle', text: 'Can you explain further?' });
-        suggestions.push({ icon: 'fa-lightbulb', text: 'Any other solutions?' });
+        suggestions.push({ icon: 'fa-question-circle', text: 'Tell me more' });
+        suggestions.push({ icon: 'fa-lightbulb', text: 'Any other options?' });
     }
     
-    // Always offer escalation as last option
-    suggestions.push({ icon: 'fa-headset', text: 'I need human support' });
+    suggestions.push({ icon: 'fa-headset', text: 'Talk to a human' });
     
-    return suggestions.slice(0, 3); // Max 3 suggestions
+    return suggestions.slice(0, 3);
 }
 
 function renderSuggestions(suggestions) {
@@ -796,7 +723,7 @@ function renderSuggestions(suggestions) {
     `;
 }
 
-// Enhanced message rendering with confidence
+// Enhanced message with confidence and suggestions
 function addMessageToUIEnhanced(message, useTypewriter = false) {
     const container = document.getElementById('messages');
     const isUser = message.role === 'user';
@@ -839,13 +766,11 @@ function addMessageToUIEnhanced(message, useTypewriter = false) {
         `;
     }
     
-    // Confidence meter for assistant messages
     let confidenceHtml = '';
     if (!isUser && message.confidence !== undefined) {
         confidenceHtml = showConfidenceMeter(message.confidence);
     }
     
-    // Smart suggestions
     let suggestionsHtml = '';
     if (!isUser && message.content) {
         const suggestions = generateSuggestions(message.content, message.intent);
@@ -854,28 +779,23 @@ function addMessageToUIEnhanced(message, useTypewriter = false) {
     
     let feedbackHtml = '';
     if (!isUser && message.message_id) {
-        const hasFeedback = message.feedback;
         feedbackHtml = `
             <div class="message-actions">
-                <button class="feedback-btn-small ${hasFeedback ? 'submitted' : ''}" 
-                        onclick="openFeedbackModal('${message.message_id}')"
-                        ${hasFeedback ? 'disabled' : ''}>
-                    <i class="fas fa-${hasFeedback ? 'check' : 'comment'}"></i>
-                    ${hasFeedback ? 'Feedback Submitted' : 'Give Feedback'}
+                <button class="feedback-btn-small" onclick="openFeedbackModal('${message.message_id}')">
+                    <i class="fas fa-comment"></i> Feedback
                 </button>
             </div>
         `;
     }
     
-    const messageId = `msg-${Date.now()}`;
     const messageHtml = `
-        <div class="message ${isUser ? 'user' : 'assistant'}" id="${messageId}">
+        <div class="message ${isUser ? 'user' : 'assistant'}">
             <div class="message-avatar ${isUser ? '' : 'cares-avatar'}">
                 ${isUser ? '<i class="fas fa-user"></i>' : '<span>C</span>'}
             </div>
             <div class="message-content">
                 ${screenshotHtml}
-                <div class="message-bubble" id="${messageId}-bubble">${isUser ? formatMessageContent(message.content) : ''}</div>
+                <div class="message-bubble">${formatMessageContent(message.content)}</div>
                 ${docLinksHtml}
                 ${confidenceHtml}
                 ${suggestionsHtml}
@@ -886,15 +806,5 @@ function addMessageToUIEnhanced(message, useTypewriter = false) {
     `;
     
     container.insertAdjacentHTML('beforeend', messageHtml);
-    
-    // Apply typewriter effect for assistant messages
-    if (!isUser && useTypewriter) {
-        const bubble = document.getElementById(`${messageId}-bubble`);
-        typewriterEffect(bubble, formatMessageContent(message.content), 10);
-    } else if (!isUser) {
-        const bubble = document.getElementById(`${messageId}-bubble`);
-        bubble.innerHTML = formatMessageContent(message.content);
-    }
-    
     scrollToBottom();
 }
