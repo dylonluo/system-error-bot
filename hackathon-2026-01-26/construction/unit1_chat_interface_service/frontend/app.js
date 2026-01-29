@@ -293,8 +293,8 @@ function addMessageToUI(message) {
     
     const messageHtml = `
         <div class="message ${isUser ? 'user' : 'assistant'}">
-            <div class="message-avatar">
-                ${isUser ? '<i class="fas fa-user"></i>' : '<i class="fas fa-cube"></i>'}
+            <div class="message-avatar ${isUser ? '' : 'cares-avatar'}">
+                ${isUser ? '<i class="fas fa-user"></i>' : '<span>C</span>'}
             </div>
             <div class="message-content">
                 ${screenshotHtml}
@@ -870,8 +870,8 @@ function addMessageToUIEnhanced(message, useTypewriter = false) {
     const messageId = `msg-${Date.now()}`;
     const messageHtml = `
         <div class="message ${isUser ? 'user' : 'assistant'}" id="${messageId}">
-            <div class="message-avatar">
-                ${isUser ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>'}
+            <div class="message-avatar ${isUser ? '' : 'cares-avatar'}">
+                ${isUser ? '<i class="fas fa-user"></i>' : '<span>C</span>'}
             </div>
             <div class="message-content">
                 ${screenshotHtml}

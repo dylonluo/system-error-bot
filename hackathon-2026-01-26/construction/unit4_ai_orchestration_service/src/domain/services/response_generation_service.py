@@ -19,8 +19,22 @@ class ResponseGenerationService:
 
     MAX_LINKS = 5
     OFF_TOPIC_MESSAGE = (
-        "I can only help with NetSuite and TMS-related questions. "
-        "For other topics, please contact general support."
+        "I'm sorry, but I can only assist with NetSuite and TMS-related questions at this time. "
+        "This includes topics like:\n\n"
+        "• Invoice and billing issues\n"
+        "• Order fulfillment and shipping\n"
+        "• Sync errors between systems\n"
+        "• Returns and RMA processing\n"
+        "• System configuration and troubleshooting\n\n"
+        "If you have a question about any of these topics, please feel free to ask!"
+    )
+    
+    NO_DOCS_FOUND_MESSAGE = (
+        "I searched through our documentation but couldn't find specific information related to your question. "
+        "This could mean:\n\n"
+        "• The topic might not be covered in our current documentation\n"
+        "• The search terms might need to be more specific\n\n"
+        "Please consider escalating this to the support team for further assistance."
     )
 
     def generate_response(
@@ -51,6 +65,14 @@ class ResponseGenerationService:
         """Generate response for off-topic queries."""
         return {
             "content": self.OFF_TOPIC_MESSAGE,
+            "documentation_links": [],
+            "links_by_category": {},
+        }
+
+    def generate_no_docs_response(self) -> Dict:
+        """Generate response when no relevant documentation is found."""
+        return {
+            "content": self.NO_DOCS_FOUND_MESSAGE,
             "documentation_links": [],
             "links_by_category": {},
         }

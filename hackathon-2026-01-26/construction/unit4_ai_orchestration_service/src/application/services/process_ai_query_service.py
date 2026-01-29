@@ -112,6 +112,11 @@ class ProcessAIQueryService:
                 if document_context:
                     print(f"[Process Service] Found docs using topic: {topic_query[:50]}...")
 
+        # Handle case where no relevant documentation was found
+        if not document_context and not documents:
+            print("[Process Service] No documentation found for query")
+            return self._handle_no_docs_found(ai_query, start_time, request.screenshot_url)
+
         # Build prompt WITH document context and call AI
         ai_start = time.time()
         prompt = self._prompt_service.build_prompt(
@@ -172,6 +177,40 @@ class ProcessAIQueryService:
             suggest_escalation=False,
             processing_time_ms=total_time_ms,
             intent="off_topic",
+        )
+
+    def _handle_no_docs_found(self, ai_query: AIQuery, start_time: float, screenshot_url: Optional[str] = None) -> ProcessQueryResponse:
+        """Handle queries where no relevant documentation was found."""
+        response_data = self._response_service.generate_no_docs_response()
+        
+        # Customize message if screenshot was attached
+        if screenshot_url:
+            response_data["content"] = (
+                "I analyzed your screenshot but couldn't find relevant documentation to help with this specific issue. "
+                "The error or situation shown doesn't match any of our indexed documentation.\n\n"
+                "To get better assistance:\n"
+                "• Please describe the error message or issue in text\n"
+                "• Include any error codes visible in the screenshot\n"
+                "• Or escalate to human support for personalized help"
+            )
+        
+        # Set low confidence for no docs found
+        ai_query.set_confidence(ConfidenceScore(value=0.2))
+        
+        total_time_ms = int((time.time() - start_time) * 1000)
+        metrics = ProcessingMetrics.create(total_time_ms=total_time_ms)
+        ai_query.record_metrics(metrics)
+
+        self._repository.save(ai_query)
+
+        return ProcessQueryResponse(
+            query_id=ai_query.query_id.value,
+            response=response_data["content"],
+            documentation_links=[],
+            confidence=0.2,
+            suggest_escalation=True,
+            processing_time_ms=total_time_ms,
+            intent=ai_query.intent.intent_type.value if ai_query.intent else "unknown",
         )
 
     def _publish_events(self, ai_query: AIQuery, processing_time_ms: int) -> None:

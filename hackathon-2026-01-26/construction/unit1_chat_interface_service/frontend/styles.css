@@ -437,7 +437,7 @@ body {
 }
 
 .message.assistant .message-avatar {
-    background: var(--castlery-black);
+    background: #834024;
     color: var(--castlery-white);
 }
 
@@ -1706,4 +1706,79 @@ body {
 .attach-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+
+/* ===== CARES Branding ===== */
+
+/* CARES logo in welcome screen */
+.welcome-cares-logo {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    z-index: 1;
+    animation: float 3s ease-in-out infinite;
+}
+
+/* CARES branding text container */
+.welcome-branding {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    margin-top: 16px;
+}
+
+/* CARES text */
+.welcome-cares-text {
+    font-family: 'Sanomat Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 32px;
+    font-weight: 700;
+    color: #834024;
+    letter-spacing: 4px;
+}
+
+/* Tagline */
+.welcome-tagline {
+    font-family: 'Sanomat Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 12px;
+    font-weight: 400;
+    color: #834024;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+/* CARES avatar for assistant messages */
+.cares-avatar {
+    background: #834024 !important;
+    color: var(--castlery-white) !important;
+}
+
+.cares-avatar span {
+    font-family: 'Sanomat Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: 0;
+}
+
+/* Typing indicator CARES avatar */
+.typing-avatar.cares-avatar {
+    background: #834024;
+    color: white;
+}
+
+.typing-avatar.cares-avatar span {
+    font-family: 'Sanomat Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+}
+
+/* Remove old welcome logo styling */
+.welcome-logo {
+    display: none;
+}
+
+/* Hide old welcome icon */
+.welcome-cares-icon {
+    display: none;
 }
