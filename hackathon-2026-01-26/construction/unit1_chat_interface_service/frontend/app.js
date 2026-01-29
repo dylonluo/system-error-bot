@@ -124,12 +124,16 @@ function startNewConversation() {
     document.getElementById('messages').innerHTML = '';
     document.getElementById('welcome-message').style.display = 'block';
     
-    // Clear input
+    // Clear and re-enable input
     document.getElementById('message-input').value = '';
+    enableChatInput();
     removeAttachment();
     
     // Update sidebar
     renderConversationList();
+    
+    // Re-animate welcome
+    animateWelcome();
 }
 
 // ===== Message Functions =====
@@ -462,7 +466,7 @@ async function confirmEscalation() {
     const reason = document.getElementById('escalation-reason').value.trim();
     
     try {
-        await apiRequest(`/conversations/${currentConversationId}/escalate`, {
+        const response = await apiRequest(`/conversations/${currentConversationId}/escalate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ reason: reason || null })
@@ -470,7 +474,14 @@ async function confirmEscalation() {
         
         closeEscalationModal();
         updateStatusBadge('escalated');
-        showToast('Your conversation has been escalated to human support', 'success');
+        
+        // Add system message showing chat has ended
+        addEscalationEndMessage();
+        
+        // Disable input
+        disableChatInput();
+        
+        showToast('Your conversation has been escalated. Support will contact you within 3-5 hours.', 'success');
         
         // Refresh conversations
         loadConversations();
@@ -478,6 +489,50 @@ async function confirmEscalation() {
     } catch (error) {
         showToast('Failed to escalate conversation', 'error');
     }
+}
+
+function addEscalationEndMessage() {
+    const container = document.getElementById('messages');
+    const messageHtml = `
+        <div class="escalation-end-message">
+            <div class="escalation-end-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="escalation-end-content">
+                <h4>Chat Escalated Successfully</h4>
+                <p>Your conversation has been sent to our support team.</p>
+                <p>They will contact you via email within <strong>3-5 business hours</strong>.</p>
+                <p class="escalation-end-note">This chat session has ended. You can start a new conversation if needed.</p>
+            </div>
+            <button class="btn-new-chat" onclick="startNewConversation()">
+                <i class="fas fa-plus"></i> Start New Conversation
+            </button>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', messageHtml);
+    scrollToBottom();
+}
+
+function disableChatInput() {
+    const input = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-btn');
+    const attachBtn = document.querySelector('.attach-btn');
+    
+    input.disabled = true;
+    input.placeholder = 'This conversation has been escalated. Start a new conversation to continue.';
+    sendBtn.disabled = true;
+    if (attachBtn) attachBtn.disabled = true;
+}
+
+function enableChatInput() {
+    const input = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-btn');
+    const attachBtn = document.querySelector('.attach-btn');
+    
+    input.disabled = false;
+    input.placeholder = 'Describe your issue or ask a question...';
+    sendBtn.disabled = false;
+    if (attachBtn) attachBtn.disabled = false;
 }
 
 // ===== UI Helper Functions =====
@@ -687,28 +742,44 @@ function dismissConfidenceWarning() {
 // Generate smart follow-up suggestions
 function generateSuggestions(content, intent) {
     const suggestions = [];
+    const contentLower = content.toLowerCase();
     
-    // Based on content keywords
-    if (content.toLowerCase().includes('error')) {
-        suggestions.push({ icon: 'fa-bug', text: 'Show me the error logs' });
-        suggestions.push({ icon: 'fa-redo', text: 'How do I retry this?' });
+    // Based on content keywords - more actionable suggestions
+    if (contentLower.includes('error') || contentLower.includes('issue') || contentLower.includes('problem')) {
+        suggestions.push({ icon: 'fa-redo', text: 'What if that doesn\'t work?' });
+        suggestions.push({ icon: 'fa-info-circle', text: 'Can you explain more?' });
     }
     
-    if (content.toLowerCase().includes('sync')) {
-        suggestions.push({ icon: 'fa-clock', text: 'When does sync run?' });
-        suggestions.push({ icon: 'fa-list', text: 'Show sync history' });
+    if (contentLower.includes('sync') || contentLower.includes('integration')) {
+        suggestions.push({ icon: 'fa-clock', text: 'How long does sync take?' });
+        suggestions.push({ icon: 'fa-check-circle', text: 'How do I verify it worked?' });
     }
     
-    if (content.toLowerCase().includes('invoice') || content.toLowerCase().includes('order')) {
-        suggestions.push({ icon: 'fa-search', text: 'Search by order number' });
-        suggestions.push({ icon: 'fa-file-alt', text: 'View invoice details' });
+    if (contentLower.includes('invoice') || contentLower.includes('billing')) {
+        suggestions.push({ icon: 'fa-file-invoice', text: 'How do I regenerate invoice?' });
+        suggestions.push({ icon: 'fa-edit', text: 'Can I edit the invoice?' });
     }
     
-    // Always add these
-    suggestions.push({ icon: 'fa-question-circle', text: 'Tell me more' });
-    suggestions.push({ icon: 'fa-headset', text: 'Talk to human support' });
+    if (contentLower.includes('order') || contentLower.includes('fulfillment')) {
+        suggestions.push({ icon: 'fa-truck', text: 'How do I track shipment?' });
+        suggestions.push({ icon: 'fa-undo', text: 'How do I cancel order?' });
+    }
     
-    return suggestions.slice(0, 4); // Max 4 suggestions
+    if (contentLower.includes('return') || contentLower.includes('rma')) {
+        suggestions.push({ icon: 'fa-box', text: 'What\'s the return policy?' });
+        suggestions.push({ icon: 'fa-money-bill', text: 'When will refund process?' });
+    }
+    
+    // Generic helpful suggestions if we don't have specific ones
+    if (suggestions.length === 0) {
+        suggestions.push({ icon: 'fa-question-circle', text: 'Can you explain further?' });
+        suggestions.push({ icon: 'fa-lightbulb', text: 'Any other solutions?' });
+    }
+    
+    // Always offer escalation as last option
+    suggestions.push({ icon: 'fa-headset', text: 'I need human support' });
+    
+    return suggestions.slice(0, 3); // Max 3 suggestions
 }
 
 function renderSuggestions(suggestions) {

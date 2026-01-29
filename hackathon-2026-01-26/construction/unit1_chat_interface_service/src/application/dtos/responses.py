@@ -35,6 +35,8 @@ class MessageResponse:
     screenshot_url: Optional[str] = None
     documentation_links: List[DocumentationLinkResponse] = None
     feedback: Optional[FeedbackResponse] = None
+    confidence: Optional[float] = None  # AI confidence score (0.0 - 1.0)
+    intent: Optional[str] = None  # Detected intent type
 
     def __post_init__(self):
         if self.documentation_links is None:

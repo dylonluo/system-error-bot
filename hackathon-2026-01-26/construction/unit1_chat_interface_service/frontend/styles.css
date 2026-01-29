@@ -1616,3 +1616,94 @@ body {
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
 }
+
+
+/* ===== Escalation End Message ===== */
+.escalation-end-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 40px;
+    margin: 20px auto;
+    max-width: 500px;
+    background: linear-gradient(135deg, rgba(90, 138, 106, 0.1) 0%, rgba(90, 138, 106, 0.05) 100%);
+    border: 1px solid rgba(90, 138, 106, 0.3);
+    border-radius: var(--radius-lg);
+    animation: fadeIn 0.5s ease;
+}
+
+.escalation-end-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--success-color);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    margin-bottom: 20px;
+    animation: scaleIn 0.5s ease;
+}
+
+@keyframes scaleIn {
+    from { transform: scale(0); }
+    to { transform: scale(1); }
+}
+
+.escalation-end-content h4 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+}
+
+.escalation-end-content p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    line-height: 1.6;
+}
+
+.escalation-end-note {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(90, 138, 106, 0.2);
+    font-style: italic;
+    color: var(--text-light) !important;
+}
+
+.btn-new-chat {
+    margin-top: 24px;
+    padding: 14px 28px;
+    background: var(--castlery-orange);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: var(--transition);
+}
+
+.btn-new-chat:hover {
+    background: var(--castlery-orange-hover);
+    transform: translateY(-2px);
+}
+
+/* Disabled input state */
+#message-input:disabled {
+    background: var(--bg-tertiary);
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.send-btn:disabled,
+.attach-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
