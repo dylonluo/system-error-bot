@@ -680,6 +680,28 @@ function dismissConfidenceWarning() {
     document.getElementById('confidence-warning').classList.add('hidden');
 }
 
+// Generate confidence meter HTML
+function getConfidenceMeterHtml(confidence) {
+    if (confidence === undefined) return '';
+    
+    let level = 'high';
+    if (confidence < 0.5) {
+        level = 'low';
+    } else if (confidence < 0.75) {
+        level = 'medium';
+    }
+    
+    return `
+        <div class="confidence-meter">
+            <span class="confidence-label-text">AI Confidence:</span>
+            <div class="confidence-bar">
+                <div class="confidence-fill ${level}" style="width: ${confidence * 100}%"></div>
+            </div>
+            <span class="confidence-label">${Math.round(confidence * 100)}%</span>
+        </div>
+    `;
+}
+
 // Enhanced message rendering (no suggestions, just feedback on latest)
 function addMessageToUIEnhanced(message) {
     const container = document.getElementById('messages');
@@ -723,9 +745,15 @@ function addMessageToUIEnhanced(message) {
         `;
     }
     
-    // Show confidence warning if low
-    if (!isUser && message.confidence !== undefined && message.confidence < 0.5) {
-        showConfidenceWarning();
+    // Confidence meter for assistant messages
+    let confidenceHtml = '';
+    if (!isUser && message.confidence !== undefined) {
+        confidenceHtml = getConfidenceMeterHtml(message.confidence);
+        
+        // Show warning banner if low confidence
+        if (message.confidence < 0.5) {
+            showConfidenceWarning();
+        }
     }
     
     // Only add feedback button to assistant messages (this is the latest one)
@@ -749,6 +777,7 @@ function addMessageToUIEnhanced(message) {
                 ${screenshotHtml}
                 <div class="message-bubble">${formatMessageContent(message.content)}</div>
                 ${docLinksHtml}
+                ${confidenceHtml}
                 ${feedbackHtml}
                 <span class="message-time">${formatTime(message.timestamp)}</span>
             </div>
