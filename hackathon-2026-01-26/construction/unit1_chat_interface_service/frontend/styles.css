@@ -224,8 +224,30 @@ body {
     margin-bottom: var(--space-lg);
 }
 
+.panel-logos {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.panel-cares-logo {
+    height: 80px;
+    width: auto;
+    object-fit: contain;
+}
+
+.panel-company-logo {
+    height: 32px;
+    width: auto;
+    max-width: 180px;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
+    opacity: 0.9;
+}
+
 .panel-logo {
-    height: 48px;
+    height: 64px;
     width: auto;
     opacity: 1;
     filter: brightness(0) invert(1);
@@ -543,7 +565,7 @@ body {
 }
 
 .welcome-tagline {
-    font-size: 14px;
+    font-size: 16px;
     color: var(--castlery-brown);
     text-transform: uppercase;
     letter-spacing: 2px;
@@ -687,21 +709,24 @@ body {
     font-size: 15px;
     line-height: 1.7;
     position: relative;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
 }
 
 .message.assistant .message-bubble {
     background: #FFFFFF;
     backdrop-filter: blur(10px);
     border: 1px solid var(--glass-border);
-    border-left: 3px solid var(--accent-burnt);  /* Techy indicator using brand color */
-    color: var(--deep-slate);
+    border-left: 3px solid var(--castlery-orange);
+    color: var(--castlery-dark);
     border-radius: 4px 16px 16px 16px;
     box-shadow: var(--shadow-card);
 }
 
 .message.user .message-bubble {
-    background: var(--deep-slate);
-    color: var(--warm-white);
+    background: var(--castlery-brown);
+    color: #FFFFFF;
     border-radius: 16px 16px 4px 16px;
 }
 
@@ -1363,6 +1388,60 @@ body {
 .btn-primary:disabled {
     background: var(--taupe-light);
     cursor: not-allowed;
+}
+
+/* ===== Follow-up Modal ===== */
+.followup-options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.followup-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
+    background: var(--cream);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    color: var(--charcoal);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    text-align: left;
+}
+
+.followup-btn:hover {
+    background: var(--cream-dark);
+    border-color: var(--taupe);
+}
+
+.followup-btn i {
+    font-size: 18px;
+    color: var(--castlery-orange);
+    width: 24px;
+}
+
+.followup-btn.followup-escalate {
+    background: var(--castlery-orange);
+    border-color: var(--castlery-orange);
+    color: #fff;
+}
+
+.followup-btn.followup-escalate i {
+    color: #fff;
+}
+
+.followup-btn.followup-escalate:hover {
+    background: var(--castlery-orange-hover);
+}
+
+/* ===== Disabled Feedback Button ===== */
+.feedback-btn-small.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 /* ===== Confidence Toast ===== */

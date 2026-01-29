@@ -19,13 +19,16 @@
     <div class="app-container">
         <!-- Minimal Side Panel (Collapsed by default) -->
         <aside class="side-panel" id="side-panel">
-            <button class="panel-toggle" onclick="toggleSidePanel()"></button>
+            <button class="panel-toggle" onclick="toggleSidePanel()">
                 <i class="fas fa-chevron-left"></i>
             </button>
             
             <div class="panel-content">
                 <div class="panel-header">
-                    <img src="/static/castlery-logo.png" alt="Castlery" class="panel-logo">
+                    <div class="panel-logos">
+                        <img src="/static/CARES-logo.png" alt="CARES" class="panel-cares-logo">
+                        <img src="/static/company-logo.png" alt="Company" class="panel-company-logo">
+                    </div>
                 </div>
                 
                 <button class="new-chat-btn" onclick="startNewConversation()">
@@ -214,6 +217,35 @@
         <i class="fas fa-exclamation-triangle"></i>
         <span>AI confidence is low. <a href="#" onclick="escalateConversation(); return false;">Get human help</a></span>
         <button onclick="dismissConfidenceWarning()"><i class="fas fa-times"></i></button>
+    </div>
+
+    <!-- Follow-up Modal (replaces browser alert) -->
+    <div class="modal-overlay hidden" id="followup-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>We're sorry to hear that</h3>
+                <button class="modal-close" onclick="closeFollowUpModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 20px; color: var(--charcoal-light);">The response wasn't helpful. What would you like to do?</p>
+                <div class="followup-options">
+                    <button class="followup-btn" onclick="handleFollowUpContinue()">
+                        <i class="fas fa-comments"></i>
+                        <span>Continue chatting</span>
+                    </button>
+                    <button class="followup-btn" onclick="handleFollowUpNewChat()">
+                        <i class="fas fa-plus"></i>
+                        <span>Start new conversation</span>
+                    </button>
+                    <button class="followup-btn followup-escalate" onclick="handleFollowUpEscalate()">
+                        <i class="fas fa-headset"></i>
+                        <span>Talk to human support</span>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Toast -->

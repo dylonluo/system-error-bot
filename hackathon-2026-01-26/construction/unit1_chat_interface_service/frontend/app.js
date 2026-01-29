@@ -9,7 +9,7 @@ let selectedFile = null;
 let feedbackMessageId = null;
 let feedbackAnswered = null;
 let feedbackSolved = null;
-let lastConfidence = 1.0;
+let lastAssistantMessageId = null; // Track the latest AI message for feedback
 
 // ===== Typing Status Messages =====
 const TYPING_MESSAGES = [
@@ -22,7 +22,6 @@ const TYPING_MESSAGES = [
 // ===== Initialize =====
 document.addEventListener('DOMContentLoaded', () => {
     loadConversations();
-    animateWelcome();
     
     // Start with panel collapsed on mobile
     if (window.innerWidth < 768) {
@@ -124,6 +123,7 @@ async function loadConversation(conversationId) {
 
 function startNewConversation() {
     currentConversationId = null;
+    lastAssistantMessageId = null;
     
     document.getElementById('current-chat-title').textContent = 'CARES';
     updateStatusBadge('active');
@@ -134,7 +134,6 @@ function startNewConversation() {
     enableChatInput();
     removeAttachment();
     renderConversationList();
-    animateWelcome();
     
     // Close panel on mobile
     if (window.innerWidth < 768) {
@@ -153,6 +152,9 @@ async function sendMessage() {
     sendBtn.disabled = true;
     
     document.getElementById('welcome-message').style.display = 'none';
+    
+    // Disable previous feedback button before adding new message
+    disablePreviousFeedbackButtons();
     
     addMessageToUI({
         role: 'user',
@@ -198,15 +200,17 @@ async function sendMessage() {
         
         hideTypingIndicator();
         
+        // Track the latest assistant message
+        lastAssistantMessageId = data.message_id;
+        
         addMessageToUIEnhanced({
             message_id: data.message_id,
             role: 'assistant',
             content: data.content,
             timestamp: data.timestamp,
             documentation_links: data.documentation_links || [],
-            confidence: data.confidence || 0.8,
-            intent: data.intent
-        }, true);
+            confidence: data.confidence || 0.8
+        });
         
         document.getElementById('current-chat-title').textContent = 
             text.substring(0, 40) + (text.length > 40 ? '...' : '');
@@ -222,9 +226,12 @@ async function sendMessage() {
     }
 }
 
-function sendQuickMessage(text) {
-    document.getElementById('message-input').value = text;
-    sendMessage();
+// Disable all previous feedback buttons (only latest message should have active feedback)
+function disablePreviousFeedbackButtons() {
+    document.querySelectorAll('.feedback-btn-small:not(.submitted)').forEach(btn => {
+        btn.disabled = true;
+        btn.classList.add('disabled');
+    });
 }
 
 function addMessageToUI(message) {
@@ -269,21 +276,7 @@ function addMessageToUI(message) {
         `;
     }
     
-    let feedbackHtml = '';
-    if (!isUser && message.message_id) {
-        const hasFeedback = message.feedback;
-        feedbackHtml = `
-            <div class="message-actions">
-                <button class="feedback-btn-small ${hasFeedback ? 'submitted' : ''}" 
-                        onclick="openFeedbackModal('${message.message_id}')"
-                        ${hasFeedback ? 'disabled' : ''}>
-                    <i class="fas fa-${hasFeedback ? 'check' : 'comment'}"></i>
-                    ${hasFeedback ? 'Thanks!' : 'Feedback'}
-                </button>
-            </div>
-        `;
-    }
-    
+    // No feedback button for user messages or when loading history
     const messageHtml = `
         <div class="message ${isUser ? 'user' : 'assistant'}">
             <div class="message-avatar ${isUser ? '' : 'cares-avatar'}">
@@ -293,7 +286,6 @@ function addMessageToUI(message) {
                 ${screenshotHtml}
                 <div class="message-bubble">${formatMessageContent(message.content)}</div>
                 ${docLinksHtml}
-                ${feedbackHtml}
                 <span class="message-time">${formatTime(message.timestamp)}</span>
             </div>
         </div>
@@ -306,7 +298,42 @@ function addMessageToUI(message) {
 function renderMessages(messages) {
     const container = document.getElementById('messages');
     container.innerHTML = '';
-    messages.forEach(msg => addMessageToUI(msg));
+    lastAssistantMessageId = null;
+    
+    messages.forEach((msg, index) => {
+        // Find the last assistant message
+        if (msg.role === 'assistant') {
+            lastAssistantMessageId = msg.message_id;
+        }
+        addMessageToUI(msg);
+    });
+    
+    // Add feedback button only to the last assistant message if not already submitted
+    if (lastAssistantMessageId) {
+        const lastMessage = messages.find(m => m.message_id === lastAssistantMessageId);
+        if (lastMessage && !lastMessage.feedback) {
+            addFeedbackButtonToLastMessage(lastAssistantMessageId);
+        }
+    }
+}
+
+function addFeedbackButtonToLastMessage(messageId) {
+    const messages = document.querySelectorAll('.message.assistant');
+    if (messages.length > 0) {
+        const lastMessage = messages[messages.length - 1];
+        const content = lastMessage.querySelector('.message-content');
+        const timeEl = content.querySelector('.message-time');
+        
+        const feedbackHtml = `
+            <div class="message-actions">
+                <button class="feedback-btn-small" onclick="openFeedbackModal('${messageId}')">
+                    <i class="fas fa-comment"></i> Feedback
+                </button>
+            </div>
+        `;
+        
+        timeEl.insertAdjacentHTML('beforebegin', feedbackHtml);
+    }
 }
 
 
@@ -402,35 +429,49 @@ async function submitFeedback() {
         closeFeedbackModal();
         showToast('Thank you for your feedback!', 'success');
         
-        const feedbackBtns = document.querySelectorAll('.feedback-btn-small');
-        feedbackBtns.forEach(btn => {
-            if (btn.onclick && btn.onclick.toString().includes(feedbackMessageId)) {
+        // Update the feedback button to show submitted state
+        document.querySelectorAll('.feedback-btn-small').forEach(btn => {
+            if (!btn.classList.contains('submitted')) {
                 btn.classList.add('submitted');
                 btn.innerHTML = '<i class="fas fa-check"></i> Thanks!';
                 btn.disabled = true;
             }
         });
         
+        // If negative feedback, show the follow-up modal (not browser alert)
         if (!feedbackAnswered || !feedbackSolved) {
             setTimeout(() => {
-                const action = confirm(
-                    "We're sorry the response wasn't helpful.\n\n" +
-                    "Would you like to:\n" +
-                    "• Click OK to start a new conversation\n" +
-                    "• Click Cancel to escalate to human support"
-                );
-                
-                if (action) {
-                    startNewConversation();
-                } else {
-                    escalateConversation();
-                }
+                showFollowUpModal();
             }, 500);
         }
         
     } catch (error) {
         showToast('Failed to submit feedback', 'error');
     }
+}
+
+// Show follow-up options modal instead of browser alert
+function showFollowUpModal() {
+    document.getElementById('followup-modal').classList.remove('hidden');
+}
+
+function closeFollowUpModal() {
+    document.getElementById('followup-modal').classList.add('hidden');
+}
+
+function handleFollowUpNewChat() {
+    closeFollowUpModal();
+    startNewConversation();
+    showToast('Starting a new conversation...', 'success');
+}
+
+function handleFollowUpEscalate() {
+    closeFollowUpModal();
+    escalateConversation();
+}
+
+function handleFollowUpContinue() {
+    closeFollowUpModal();
 }
 
 // ===== Escalation Functions =====
@@ -514,6 +555,7 @@ function enableChatInput() {
     if (attachBtn) attachBtn.disabled = false;
 }
 
+
 // ===== UI Helper Functions =====
 function showTypingIndicator() {
     document.getElementById('typing-indicator').classList.remove('hidden');
@@ -588,7 +630,6 @@ function handleKeyDown(event) {
     }
 }
 
-
 // ===== Formatting Functions =====
 function formatMessageContent(content) {
     let formatted = escapeHtml(content);
@@ -625,47 +666,7 @@ function formatTime(dateString) {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-// ===== Enhanced UI Functions =====
-function animateWelcome() {
-    const cards = document.querySelectorAll('.feature-card');
-    cards.forEach((card, index) => {
-        card.style.opacity = '0';
-        card.style.transform = 'translateY(20px)';
-        setTimeout(() => {
-            card.style.transition = 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)';
-            card.style.opacity = '1';
-            card.style.transform = 'translateY(0)';
-        }, 200 + (index * 100));
-    });
-}
-
-// Confidence meter
-function showConfidenceMeter(confidence) {
-    lastConfidence = confidence;
-    
-    let level = 'high';
-    let label = 'High';
-    
-    if (confidence < 0.5) {
-        level = 'low';
-        label = 'Low';
-        showConfidenceWarning();
-    } else if (confidence < 0.75) {
-        level = 'medium';
-        label = 'Medium';
-    }
-    
-    return `
-        <div class="confidence-meter">
-            <span style="font-size: 11px; color: var(--taupe);">Confidence:</span>
-            <div class="confidence-bar">
-                <div class="confidence-fill ${level}" style="width: ${confidence * 100}%"></div>
-            </div>
-            <span class="confidence-label">${Math.round(confidence * 100)}%</span>
-        </div>
-    `;
-}
-
+// ===== Confidence Warning =====
 function showConfidenceWarning() {
     const warning = document.getElementById('confidence-warning');
     warning.classList.remove('hidden');
@@ -679,52 +680,8 @@ function dismissConfidenceWarning() {
     document.getElementById('confidence-warning').classList.add('hidden');
 }
 
-// Smart suggestions
-function generateSuggestions(content, intent) {
-    const suggestions = [];
-    const contentLower = content.toLowerCase();
-    
-    if (contentLower.includes('error') || contentLower.includes('issue')) {
-        suggestions.push({ icon: 'fa-redo', text: 'What if that doesn\'t work?' });
-        suggestions.push({ icon: 'fa-info-circle', text: 'Can you explain more?' });
-    }
-    
-    if (contentLower.includes('order') || contentLower.includes('delivery')) {
-        suggestions.push({ icon: 'fa-truck', text: 'How do I track my order?' });
-        suggestions.push({ icon: 'fa-clock', text: 'When will it arrive?' });
-    }
-    
-    if (contentLower.includes('return') || contentLower.includes('refund')) {
-        suggestions.push({ icon: 'fa-box', text: 'What\'s the return policy?' });
-        suggestions.push({ icon: 'fa-money-bill', text: 'When will I get my refund?' });
-    }
-    
-    if (suggestions.length === 0) {
-        suggestions.push({ icon: 'fa-question-circle', text: 'Tell me more' });
-        suggestions.push({ icon: 'fa-lightbulb', text: 'Any other options?' });
-    }
-    
-    suggestions.push({ icon: 'fa-headset', text: 'Talk to a human' });
-    
-    return suggestions.slice(0, 3);
-}
-
-function renderSuggestions(suggestions) {
-    if (!suggestions || suggestions.length === 0) return '';
-    
-    return `
-        <div class="smart-suggestions">
-            ${suggestions.map(s => `
-                <button class="suggestion-chip" onclick="sendQuickMessage('${s.text}')">
-                    <i class="fas ${s.icon}"></i>${s.text}
-                </button>
-            `).join('')}
-        </div>
-    `;
-}
-
-// Enhanced message with confidence and suggestions
-function addMessageToUIEnhanced(message, useTypewriter = false) {
+// Enhanced message rendering (no suggestions, just feedback on latest)
+function addMessageToUIEnhanced(message) {
     const container = document.getElementById('messages');
     const isUser = message.role === 'user';
     
@@ -766,17 +723,12 @@ function addMessageToUIEnhanced(message, useTypewriter = false) {
         `;
     }
     
-    let confidenceHtml = '';
-    if (!isUser && message.confidence !== undefined) {
-        confidenceHtml = showConfidenceMeter(message.confidence);
+    // Show confidence warning if low
+    if (!isUser && message.confidence !== undefined && message.confidence < 0.5) {
+        showConfidenceWarning();
     }
     
-    let suggestionsHtml = '';
-    if (!isUser && message.content) {
-        const suggestions = generateSuggestions(message.content, message.intent);
-        suggestionsHtml = renderSuggestions(suggestions);
-    }
-    
+    // Only add feedback button to assistant messages (this is the latest one)
     let feedbackHtml = '';
     if (!isUser && message.message_id) {
         feedbackHtml = `
@@ -797,8 +749,6 @@ function addMessageToUIEnhanced(message, useTypewriter = false) {
                 ${screenshotHtml}
                 <div class="message-bubble">${formatMessageContent(message.content)}</div>
                 ${docLinksHtml}
-                ${confidenceHtml}
-                ${suggestionsHtml}
                 ${feedbackHtml}
                 <span class="message-time">${formatTime(message.timestamp)}</span>
             </div>
