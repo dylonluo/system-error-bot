@@ -1748,6 +1748,17 @@ body {
     text-transform: uppercase;
 }
 
+/* Because We Care text */
+.welcome-because-we-care {
+    font-family: 'Sanomat Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: #834024;
+    letter-spacing: 0.5px;
+    margin-top: 8px;
+    font-style: italic;
+}
+
 /* CARES avatar for assistant messages */
 .cares-avatar {
     background: #834024 !important;
