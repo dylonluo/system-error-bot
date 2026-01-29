@@ -9,10 +9,20 @@ let selectedFile = null;
 let feedbackMessageId = null;
 let feedbackAnswered = null;
 let feedbackSolved = null;
+let lastConfidence = 1.0;
+
+// ===== Typing Status Messages =====
+const TYPING_MESSAGES = [
+    "AI is analyzing your question...",
+    "Searching documentation...",
+    "Finding relevant information...",
+    "Generating response...",
+];
 
 // ===== Initialize =====
 document.addEventListener('DOMContentLoaded', () => {
     loadConversations();
+    animateWelcome();
 });
 
 // ===== API Functions =====
@@ -188,14 +198,16 @@ async function sendMessage() {
         // Hide typing indicator
         hideTypingIndicator();
         
-        // Add assistant response
-        addMessageToUI({
+        // Add assistant response with typewriter effect
+        addMessageToUIEnhanced({
             message_id: data.message_id,
             role: 'assistant',
             content: data.content,
             timestamp: data.timestamp,
-            documentation_links: data.documentation_links || []
-        });
+            documentation_links: data.documentation_links || [],
+            confidence: data.confidence || 0.8,  // Get confidence from response
+            intent: data.intent
+        }, true);  // Enable typewriter effect
         
         // Update header
         document.getElementById('current-chat-title').textContent = 
@@ -472,10 +484,22 @@ async function confirmEscalation() {
 function showTypingIndicator() {
     document.getElementById('typing-indicator').classList.remove('hidden');
     scrollToBottom();
+    
+    // Cycle through typing messages
+    let messageIndex = 0;
+    const statusEl = document.getElementById('typing-status');
+    
+    window.typingInterval = setInterval(() => {
+        messageIndex = (messageIndex + 1) % TYPING_MESSAGES.length;
+        statusEl.textContent = TYPING_MESSAGES[messageIndex];
+    }, 2000);
 }
 
 function hideTypingIndicator() {
     document.getElementById('typing-indicator').classList.add('hidden');
+    if (window.typingInterval) {
+        clearInterval(window.typingInterval);
+    }
 }
 
 function showLoading() {
@@ -570,4 +594,236 @@ function formatTime(dateString) {
     
     const date = new Date(dateString);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+
+// ===== Enhanced UI Functions =====
+
+function animateWelcome() {
+    // Add staggered animation to quick actions
+    const quickActions = document.querySelectorAll('.quick-action');
+    quickActions.forEach((btn, index) => {
+        btn.style.opacity = '0';
+        btn.style.transform = 'translateY(20px)';
+        setTimeout(() => {
+            btn.style.transition = 'all 0.4s ease';
+            btn.style.opacity = '1';
+            btn.style.transform = 'translateY(0)';
+        }, 300 + (index * 100));
+    });
+}
+
+// Typewriter effect for AI responses
+function typewriterEffect(element, text, speed = 15) {
+    return new Promise((resolve) => {
+        let index = 0;
+        element.innerHTML = '';
+        
+        function type() {
+            if (index < text.length) {
+                // Handle HTML tags
+                if (text[index] === '<') {
+                    const closeIndex = text.indexOf('>', index);
+                    if (closeIndex !== -1) {
+                        element.innerHTML += text.substring(index, closeIndex + 1);
+                        index = closeIndex + 1;
+                    }
+                } else {
+                    element.innerHTML += text[index];
+                    index++;
+                }
+                setTimeout(type, speed);
+                scrollToBottom();
+            } else {
+                resolve();
+            }
+        }
+        type();
+    });
+}
+
+// Show confidence meter
+function showConfidenceMeter(confidence) {
+    lastConfidence = confidence;
+    
+    let level = 'high';
+    let label = 'High confidence';
+    
+    if (confidence < 0.5) {
+        level = 'low';
+        label = 'Low confidence';
+        showConfidenceWarning();
+    } else if (confidence < 0.75) {
+        level = 'medium';
+        label = 'Medium confidence';
+    }
+    
+    return `
+        <div class="confidence-meter">
+            <span style="font-size: 11px; color: var(--text-light);">AI Confidence:</span>
+            <div class="confidence-bar">
+                <div class="confidence-fill ${level}" style="width: ${confidence * 100}%"></div>
+            </div>
+            <span class="confidence-label">${Math.round(confidence * 100)}%</span>
+        </div>
+    `;
+}
+
+// Show confidence warning banner
+function showConfidenceWarning() {
+    const warning = document.getElementById('confidence-warning');
+    warning.classList.remove('hidden');
+    
+    // Auto-hide after 10 seconds
+    setTimeout(() => {
+        dismissConfidenceWarning();
+    }, 10000);
+}
+
+function dismissConfidenceWarning() {
+    document.getElementById('confidence-warning').classList.add('hidden');
+}
+
+// Generate smart follow-up suggestions
+function generateSuggestions(content, intent) {
+    const suggestions = [];
+    
+    // Based on content keywords
+    if (content.toLowerCase().includes('error')) {
+        suggestions.push({ icon: 'fa-bug', text: 'Show me the error logs' });
+        suggestions.push({ icon: 'fa-redo', text: 'How do I retry this?' });
+    }
+    
+    if (content.toLowerCase().includes('sync')) {
+        suggestions.push({ icon: 'fa-clock', text: 'When does sync run?' });
+        suggestions.push({ icon: 'fa-list', text: 'Show sync history' });
+    }
+    
+    if (content.toLowerCase().includes('invoice') || content.toLowerCase().includes('order')) {
+        suggestions.push({ icon: 'fa-search', text: 'Search by order number' });
+        suggestions.push({ icon: 'fa-file-alt', text: 'View invoice details' });
+    }
+    
+    // Always add these
+    suggestions.push({ icon: 'fa-question-circle', text: 'Tell me more' });
+    suggestions.push({ icon: 'fa-headset', text: 'Talk to human support' });
+    
+    return suggestions.slice(0, 4); // Max 4 suggestions
+}
+
+function renderSuggestions(suggestions) {
+    if (!suggestions || suggestions.length === 0) return '';
+    
+    return `
+        <div class="smart-suggestions">
+            ${suggestions.map(s => `
+                <button class="suggestion-chip" onclick="sendQuickMessage('${s.text}')">
+                    <i class="fas ${s.icon}"></i>${s.text}
+                </button>
+            `).join('')}
+        </div>
+    `;
+}
+
+// Enhanced message rendering with confidence
+function addMessageToUIEnhanced(message, useTypewriter = false) {
+    const container = document.getElementById('messages');
+    const isUser = message.role === 'user';
+    
+    let screenshotHtml = '';
+    if (message.has_screenshot && selectedFile) {
+        screenshotHtml = `
+            <div class="message-screenshot">
+                <img src="${URL.createObjectURL(selectedFile)}" alt="Screenshot">
+            </div>
+        `;
+    } else if (message.screenshot_url) {
+        screenshotHtml = `
+            <div class="message-screenshot">
+                <img src="${message.screenshot_url}" alt="Screenshot">
+            </div>
+        `;
+    }
+    
+    let docLinksHtml = '';
+    if (message.documentation_links && message.documentation_links.length > 0) {
+        docLinksHtml = `
+            <div class="documentation-links">
+                ${message.documentation_links.map(link => `
+                    <a href="${link.url}" target="_blank" class="doc-link">
+                        <div class="doc-link-icon">
+                            <i class="fas fa-${link.format === 'pdf' ? 'file-pdf' : 'globe'}"></i>
+                        </div>
+                        <div class="doc-link-content">
+                            <div class="doc-link-title">${escapeHtml(link.title)}</div>
+                            <div class="doc-link-description">${escapeHtml(link.description)}</div>
+                            <div class="doc-link-meta">
+                                <span class="doc-link-badge">${link.source}</span>
+                                <span class="doc-link-badge">${Math.round(link.relevance * 100)}% match</span>
+                            </div>
+                        </div>
+                    </a>
+                `).join('')}
+            </div>
+        `;
+    }
+    
+    // Confidence meter for assistant messages
+    let confidenceHtml = '';
+    if (!isUser && message.confidence !== undefined) {
+        confidenceHtml = showConfidenceMeter(message.confidence);
+    }
+    
+    // Smart suggestions
+    let suggestionsHtml = '';
+    if (!isUser && message.content) {
+        const suggestions = generateSuggestions(message.content, message.intent);
+        suggestionsHtml = renderSuggestions(suggestions);
+    }
+    
+    let feedbackHtml = '';
+    if (!isUser && message.message_id) {
+        const hasFeedback = message.feedback;
+        feedbackHtml = `
+            <div class="message-actions">
+                <button class="feedback-btn-small ${hasFeedback ? 'submitted' : ''}" 
+                        onclick="openFeedbackModal('${message.message_id}')"
+                        ${hasFeedback ? 'disabled' : ''}>
+                    <i class="fas fa-${hasFeedback ? 'check' : 'comment'}"></i>
+                    ${hasFeedback ? 'Feedback Submitted' : 'Give Feedback'}
+                </button>
+            </div>
+        `;
+    }
+    
+    const messageId = `msg-${Date.now()}`;
+    const messageHtml = `
+        <div class="message ${isUser ? 'user' : 'assistant'}" id="${messageId}">
+            <div class="message-avatar">
+                ${isUser ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>'}
+            </div>
+            <div class="message-content">
+                ${screenshotHtml}
+                <div class="message-bubble" id="${messageId}-bubble">${isUser ? formatMessageContent(message.content) : ''}</div>
+                ${docLinksHtml}
+                ${confidenceHtml}
+                ${suggestionsHtml}
+                ${feedbackHtml}
+                <span class="message-time">${formatTime(message.timestamp)}</span>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', messageHtml);
+    
+    // Apply typewriter effect for assistant messages
+    if (!isUser && useTypewriter) {
+        const bubble = document.getElementById(`${messageId}-bubble`);
+        typewriterEffect(bubble, formatMessageContent(message.content), 10);
+    } else if (!isUser) {
+        const bubble = document.getElementById(`${messageId}-bubble`);
+        bubble.innerHTML = formatMessageContent(message.content);
+    }
+    
+    scrollToBottom();
 }
