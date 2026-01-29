@@ -225,7 +225,7 @@ body {
 }
 
 .panel-logo {
-    height: 48px;
+    height: 64px;
     width: auto;
     opacity: 1;
     filter: brightness(0) invert(1);
@@ -687,21 +687,24 @@ body {
     font-size: 15px;
     line-height: 1.7;
     position: relative;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
 }
 
 .message.assistant .message-bubble {
     background: #FFFFFF;
     backdrop-filter: blur(10px);
     border: 1px solid var(--glass-border);
-    border-left: 3px solid var(--accent-burnt);  /* Techy indicator using brand color */
-    color: var(--deep-slate);
+    border-left: 3px solid var(--castlery-orange);
+    color: var(--castlery-dark);
     border-radius: 4px 16px 16px 16px;
     box-shadow: var(--shadow-card);
 }
 
 .message.user .message-bubble {
-    background: var(--deep-slate);
-    color: var(--warm-white);
+    background: var(--castlery-brown);
+    color: #FFFFFF;
     border-radius: 16px 16px 4px 16px;
 }
 
