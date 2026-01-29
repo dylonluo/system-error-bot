@@ -19,13 +19,16 @@
     <div class="app-container">
         <!-- Minimal Side Panel (Collapsed by default) -->
         <aside class="side-panel" id="side-panel">
-            <button class="panel-toggle" onclick="toggleSidePanel()"></button>
+            <button class="panel-toggle" onclick="toggleSidePanel()">
                 <i class="fas fa-chevron-left"></i>
             </button>
             
             <div class="panel-content">
                 <div class="panel-header">
-                    <img src="/static/castlery-logo.png" alt="Castlery" class="panel-logo">
+                    <div class="panel-logos">
+                        <img src="/static/CARES-logo.png" alt="CARES" class="panel-cares-logo">
+                        <img src="/static/company-logo.png" alt="Company" class="panel-company-logo">
+                    </div>
                 </div>
                 
                 <button class="new-chat-btn" onclick="startNewConversation()">

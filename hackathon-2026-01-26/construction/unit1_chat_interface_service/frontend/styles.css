@@ -224,6 +224,28 @@ body {
     margin-bottom: var(--space-lg);
 }
 
+.panel-logos {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.panel-cares-logo {
+    height: 80px;
+    width: auto;
+    object-fit: contain;
+}
+
+.panel-company-logo {
+    height: 32px;
+    width: auto;
+    max-width: 180px;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
+    opacity: 0.9;
+}
+
 .panel-logo {
     height: 64px;
     width: auto;
