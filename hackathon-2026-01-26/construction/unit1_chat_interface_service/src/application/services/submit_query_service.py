@@ -141,8 +141,13 @@ class SubmitQueryApplicationService:
             }
         )
 
-        # 14. Return response
-        return self._build_message_response(assistant_message, str(conversation.conversation_id))
+        # 14. Return response with confidence
+        return self._build_message_response(
+            assistant_message, 
+            str(conversation.conversation_id),
+            ai_confidence=ai_response.confidence,
+            ai_intent=ai_response.intent
+        )
 
     def _handle_screenshot(
         self,
@@ -211,7 +216,7 @@ class SubmitQueryApplicationService:
             context_parts.append(f"{msg.role.value}: {msg.content}")
         return "\n".join(context_parts)
 
-    def _build_message_response(self, message, conversation_id: str) -> MessageResponse:
+    def _build_message_response(self, message, conversation_id: str, ai_confidence: float = None, ai_intent: str = None) -> MessageResponse:
         """Build message response DTO"""
         doc_links = [
             DocumentationLinkResponse(
@@ -234,5 +239,7 @@ class SubmitQueryApplicationService:
             has_screenshot=message.has_screenshot(),
             screenshot_url=message.screenshot.storage_url if message.screenshot else None,
             documentation_links=doc_links,
-            feedback=None
+            feedback=None,
+            confidence=ai_confidence,
+            intent=ai_intent
         )

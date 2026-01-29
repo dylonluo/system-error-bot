@@ -84,7 +84,7 @@ class EscalateConversationApplicationService:
             conversation_id=conversation_id_str,
             status=conversation.status.value,
             escalated_at=conversation.updated_at.isoformat(),
-            message=f"{email_confirmation.message} Our support team typically responds within 24-48 business hours."
+            message=f"{email_confirmation.message} Our support team typically responds within 3-5 business hours."
         )
 
     def _build_conversation_history(self, conversation) -> str:

@@ -24,6 +24,7 @@ class AIResponse:
     content: str
     documentation_links: List[AIDocumentationLink]
     confidence: float
+    intent: str = ""  # Detected intent type
 
 
 class AIOrchestrationClient:
@@ -142,7 +143,8 @@ class AIOrchestrationClient:
             return AIResponse(
                 content=data.get("response", ""),
                 documentation_links=doc_links,
-                confidence=data.get("confidence", 0.5)
+                confidence=data.get("confidence", 0.5),
+                intent=data.get("intent", "")
             )
 
         except requests.Timeout:
