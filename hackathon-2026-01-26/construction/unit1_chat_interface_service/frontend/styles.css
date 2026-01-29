@@ -530,48 +530,33 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--space-xs);
+    gap: var(--space-sm);
     margin-bottom: var(--space-lg);
 }
 
 .welcome-cares-text {
-    font-family: var(--font-display);
-    font-size: 48px;
-    font-weight: 600;
-    color: var(--castlery-orange);
-    letter-spacing: 4px;
+    font-family: 'Sanomat Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 56px;
+    font-weight: 700;
+    color: var(--castlery-brown);
+    letter-spacing: 6px;
 }
 
 .welcome-tagline {
-    font-size: 16px;
-    color: var(--castlery-brown);
+    font-size: 14px;
+    color: var(--castlery-orange);
     text-transform: uppercase;
     letter-spacing: 2px;
     font-weight: 500;
 }
 
-.welcome-title {
-    font-family: var(--font-display);
-    font-size: 32px;
-    font-weight: 500;
-    color: var(--castlery-dark);
-    margin-bottom: var(--space-md);
-    letter-spacing: -0.02em;
-}
-
-.welcome-subtitle {
-    font-size: 16px;
-    color: var(--taupe);
-    font-weight: 400;
-    margin-bottom: var(--space-sm);
-}
-
 .welcome-because-we-care {
     font-family: var(--font-display);
-    font-size: 18px;
+    font-size: 20px;
     font-style: italic;
-    color: var(--castlery-orange);
+    color: var(--castlery-brown);
     font-weight: 500;
+    margin-top: var(--space-lg);
 }
 
 /* ===== Feature Cards ===== */
