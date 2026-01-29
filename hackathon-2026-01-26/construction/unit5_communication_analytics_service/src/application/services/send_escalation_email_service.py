@@ -57,7 +57,10 @@ class SendEscalationEmailApplicationService:
         
         # 5. Create EscalationEmail aggregate
         email_id = EmailId.generate()
-        recipient_email = EmailAddress("support@example.com")
+        
+        # Get support team emails from provider if available, otherwise use default
+        from ...infrastructure.email import SUPPORT_TEAM_EMAILS
+        recipient_email = EmailAddress(SUPPORT_TEAM_EMAILS[0])  # Primary recipient for record
         
         escalation_email = EscalationEmail(
             email_id=email_id,
