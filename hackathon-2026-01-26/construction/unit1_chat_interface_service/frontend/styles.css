@@ -1,22 +1,27 @@
-/* ===== Soft Tech Design System ===== */
-/* High-End Tech Luxe meets Castlery's Quiet Luxury */
+/* ===== Castlery Brand Design System ===== */
 :root {
-    /* Soft Tech Color Bridge - Linen, Wood, Stone */
-    --canvas-bg: #F9F7F2;           /* Soft Linen - the furniture feel */
-    --cream: #FAF8F5;
-    --cream-dark: #F3EFE8;
+    /* Castlery Brand Colors - Official */
+    --castlery-orange: #D25C1B;
+    --castlery-orange-hover: #b84f17;
+    --castlery-brown: #834024;
+    --castlery-cream: #F6F3E7;
+    --castlery-dark: #3C101E;
+    
+    /* Extended Palette */
+    --canvas-bg: #F6F3E7;           /* Castlery Cream as main background */
+    --cream: #F6F3E7;
+    --cream-dark: #EBE6D9;
     --warm-white: #FFFEFB;
     --taupe: #B8A99A;
     --taupe-light: #D4C8BC;
     --bronze: #C4956A;
     --bronze-dark: #A67B4F;
-    --deep-slate: #2A2C2E;          /* Modern Charcoal for text/buttons */
-    --charcoal: #2D2926;
-    --charcoal-light: #4A4543;
-    --soft-black: #1A1816;
-    --accent-burnt: #BD4900;        /* Castlery's authentic Orange */
-    --castlery-orange: #BD4900;
-    --castlery-orange-soft: rgba(189, 73, 0, 0.08);
+    --deep-slate: #3C101E;          /* Castlery Dark for text */
+    --charcoal: #3C101E;
+    --charcoal-light: #834024;
+    --soft-black: #3C101E;
+    --accent-burnt: #D25C1B;
+    --castlery-orange-soft: rgba(210, 92, 27, 0.12);
     --success: #6B8E6B;
     --warning: #D4A85A;
     --error: #C47A74;
@@ -150,7 +155,7 @@ body {
 /* ===== Side Panel (Collapsible) ===== */
 .side-panel {
     width: 280px;
-    background: var(--glass-bg);
+    background: var(--castlery-brown);
     backdrop-filter: blur(20px);
     border-right: 1px solid var(--glass-border);
     display: flex;
@@ -215,20 +220,21 @@ body {
 
 .panel-header {
     padding-bottom: var(--space-lg);
-    border-bottom: 1px solid var(--glass-border);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     margin-bottom: var(--space-lg);
 }
 
 .panel-logo {
-    height: 28px;
+    height: 48px;
     width: auto;
-    opacity: 0.9;
+    opacity: 1;
+    filter: brightness(0) invert(1);
 }
 
 .new-chat-btn {
     width: 100%;
     padding: var(--space-md) var(--space-lg);
-    background: var(--deep-slate);
+    background: var(--castlery-orange);
     color: var(--warm-white);
     border: none;
     border-radius: var(--radius-md);
@@ -243,7 +249,7 @@ body {
 }
 
 .new-chat-btn:hover {
-    background: var(--soft-black);
+    background: var(--castlery-orange-hover);
     transform: translateY(-1px);
 }
 
@@ -257,7 +263,7 @@ body {
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 1.5px;
-    color: var(--taupe);
+    color: rgba(255, 255, 255, 0.6);
     margin-bottom: var(--space-md);
     font-weight: 500;
 }
@@ -276,16 +282,16 @@ body {
 }
 
 .conversation-item:hover {
-    background: var(--cream-dark);
+    background: rgba(255, 255, 255, 0.1);
 }
 
 .conversation-item.active {
-    background: var(--castlery-orange-soft);
+    background: rgba(255, 255, 255, 0.15);
 }
 
 .conversation-item .title {
     font-size: 14px;
-    color: var(--deep-slate);
+    color: #fff;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -294,7 +300,7 @@ body {
 
 .conversation-item .meta {
     font-size: 12px;
-    color: var(--taupe);
+    color: rgba(255, 255, 255, 0.6);
     display: flex;
     align-items: center;
     gap: var(--space-sm);
@@ -312,7 +318,7 @@ body {
 
 .panel-footer {
     padding-top: var(--space-lg);
-    border-top: 1px solid var(--glass-border);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .ai-status {
@@ -320,7 +326,7 @@ body {
     align-items: center;
     gap: var(--space-sm);
     padding: var(--space-sm) var(--space-md);
-    background: rgba(107, 142, 107, 0.1);
+    background: rgba(90, 138, 106, 0.2);
     border-radius: var(--radius-sm);
 }
 
@@ -328,7 +334,7 @@ body {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: var(--success);
+    background: #8BC34A;
 }
 
 .ai-status-dot.pulse {
@@ -336,13 +342,13 @@ body {
 }
 
 @keyframes pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(107, 142, 107, 0.5); }
-    50% { box-shadow: 0 0 0 8px rgba(107, 142, 107, 0); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(139, 195, 74, 0.5); }
+    50% { box-shadow: 0 0 0 8px rgba(139, 195, 74, 0); }
 }
 
 .ai-status span {
     font-size: 12px;
-    color: var(--success);
+    color: #8BC34A;
     font-weight: 500;
 }
 
@@ -491,21 +497,64 @@ body {
     box-shadow: var(--shadow-float);
 }
 
+.welcome-ring {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border: 2px solid var(--castlery-orange);
+    border-radius: 50%;
+    opacity: 0;
+    animation: ringPulse 3s ease-out infinite;
+}
+
+.welcome-ring.delay-1 { animation-delay: 1s; }
+.welcome-ring.delay-2 { animation-delay: 2s; }
+
+@keyframes ringPulse {
+    0% { transform: scale(0.8); opacity: 0.8; }
+    100% { transform: scale(1.8); opacity: 0; }
+}
+
 .welcome-cares-logo {
     width: 70px;
     height: 70px;
     object-fit: contain;
+    z-index: 1;
 }
 
 .welcome-content {
     margin-bottom: var(--space-xl);
 }
 
+.welcome-branding {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-lg);
+}
+
+.welcome-cares-text {
+    font-family: var(--font-display);
+    font-size: 48px;
+    font-weight: 600;
+    color: var(--castlery-orange);
+    letter-spacing: 4px;
+}
+
+.welcome-tagline {
+    font-size: 14px;
+    color: var(--castlery-brown);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 500;
+}
+
 .welcome-title {
     font-family: var(--font-display);
-    font-size: 42px;
+    font-size: 32px;
     font-weight: 500;
-    color: var(--deep-slate);
+    color: var(--castlery-dark);
     margin-bottom: var(--space-md);
     letter-spacing: -0.02em;
 }
@@ -514,6 +563,15 @@ body {
     font-size: 16px;
     color: var(--taupe);
     font-weight: 400;
+    margin-bottom: var(--space-sm);
+}
+
+.welcome-because-we-care {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-style: italic;
+    color: var(--castlery-orange);
+    font-weight: 500;
 }
 
 /* ===== Feature Cards ===== */
