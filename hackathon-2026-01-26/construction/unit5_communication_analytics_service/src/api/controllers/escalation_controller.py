@@ -6,19 +6,33 @@ from ...application.services import SendEscalationEmailApplicationService
 router = APIRouter(prefix="/api/v1/communication", tags=["escalation"])
 
 
+def get_email_provider():
+    """Get email provider - tries SES first, falls back to mock."""
+    from ...infrastructure.email import SESEmailProvider, MockEmailProvider
+    
+    # Try SES first
+    ses_provider = SESEmailProvider(region="ap-southeast-1")
+    if ses_provider.is_available():
+        print("[Escalation] Using AWS SES for email delivery")
+        return ses_provider
+    
+    # Fallback to mock
+    print("[Escalation] SES not available, using mock email provider")
+    return MockEmailProvider()
+
+
 def get_escalation_service() -> SendEscalationEmailApplicationService:
     """Dependency injection for escalation service."""
     from ...infrastructure.repositories import (
         InMemoryEscalationEmailRepository
     )
-    from ...infrastructure.email import MockEmailProvider
     from ...infrastructure.events import InMemoryEventPublisher
     from ...application.clients import AccessControlClient, ChatInterfaceClient
     from ...domain.services import EmailCompositionService
     
     # Create dependencies (in real app, use DI container)
     email_repository = InMemoryEscalationEmailRepository()
-    email_provider = MockEmailProvider()
+    email_provider = get_email_provider()
     event_publisher = InMemoryEventPublisher()
     access_control_client = AccessControlClient()
     chat_interface_client = ChatInterfaceClient()
