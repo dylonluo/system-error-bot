@@ -543,7 +543,7 @@ body {
 }
 
 .welcome-tagline {
-    font-size: 14px;
+    font-size: 16px;
     color: var(--castlery-brown);
     text-transform: uppercase;
     letter-spacing: 2px;
@@ -1363,6 +1363,60 @@ body {
 .btn-primary:disabled {
     background: var(--taupe-light);
     cursor: not-allowed;
+}
+
+/* ===== Follow-up Modal ===== */
+.followup-options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.followup-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
+    background: var(--cream);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    color: var(--charcoal);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    text-align: left;
+}
+
+.followup-btn:hover {
+    background: var(--cream-dark);
+    border-color: var(--taupe);
+}
+
+.followup-btn i {
+    font-size: 18px;
+    color: var(--castlery-orange);
+    width: 24px;
+}
+
+.followup-btn.followup-escalate {
+    background: var(--castlery-orange);
+    border-color: var(--castlery-orange);
+    color: #fff;
+}
+
+.followup-btn.followup-escalate i {
+    color: #fff;
+}
+
+.followup-btn.followup-escalate:hover {
+    background: var(--castlery-orange-hover);
+}
+
+/* ===== Disabled Feedback Button ===== */
+.feedback-btn-small.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 /* ===== Confidence Toast ===== */
